@@ -1,0 +1,25 @@
+# Build directories
+bin/
+obj/
+out/
+
+# User settings
+*.user
+*.rsuser
+*.suo
+
+# Visual Studio cache
+.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+*.log
+
+# Temp
+*.tmp
+*.temp
+*.cache
