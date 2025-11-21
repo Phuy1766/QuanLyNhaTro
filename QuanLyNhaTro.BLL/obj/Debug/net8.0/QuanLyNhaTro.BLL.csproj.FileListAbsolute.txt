@@ -1,0 +1,15 @@
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\bin\Debug\net8.0\QuanLyNhaTro.BLL.deps.json
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\bin\Debug\net8.0\QuanLyNhaTro.BLL.dll
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\bin\Debug\net8.0\QuanLyNhaTro.BLL.pdb
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\bin\Debug\net8.0\QuanLyNhaTro.DAL.dll
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\bin\Debug\net8.0\QuanLyNhaTro.DAL.pdb
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.csproj.AssemblyReference.cache
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.AssemblyInfoInputs.cache
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.AssemblyInfo.cs
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.csproj.CoreCompileInputs.cache
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNh.8C4C469A.Up2Date
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.dll
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\refint\QuanLyNhaTro.BLL.dll
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\QuanLyNhaTro.BLL.pdb
+C:\Users\phuy1\Documents\QuanLyNhaTro\QuanLyNhaTro.BLL\obj\Debug\net8.0\ref\QuanLyNhaTro.BLL.dll

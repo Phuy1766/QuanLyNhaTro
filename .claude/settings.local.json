@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet add:*)",
+      "Bash(Select-String -Pattern \"(error|warning CS)\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(taskkill:*)",
+      "Bash(dir:*)",
+      "Bash(Select-Object -First 30)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

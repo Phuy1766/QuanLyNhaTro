@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuanLyNhaTro.BLL\QuanLyNhaTro.BLL.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Guna.UI2.WinForms" Version="2.0.4.6" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WinForms" Version="2.0.0-rc2" />
+    <PackageReference Include="EPPlus" Version="7.0.0" />
+    <PackageReference Include="iTextSharp.LGPLv2.Core" Version="3.4.20" />
+    <PackageReference Include="QRCoder" Version="1.4.3" />
+  </ItemGroup>
+
+</Project>
