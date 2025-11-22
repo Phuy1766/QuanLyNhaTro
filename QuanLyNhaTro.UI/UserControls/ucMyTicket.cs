@@ -98,7 +98,7 @@ namespace QuanLyNhaTro.UI.UserControls
             UIHelper.AddColumn(dgv, "MoTa", "Mô tả", "MoTa", 200);
             UIHelper.AddColumn(dgv, "TrangThai", "Trạng thái", "TrangThai", 100);
             UIHelper.AddColumn(dgv, "NgayTao", "Ngày gửi", "NgayTao", 100);
-            UIHelper.AddColumn(dgv, "NguoiXuLy", "Người xử lý", "NguoiXuLy", 120);
+            UIHelper.AddColumn(dgv, "TenNguoiXuLy", "Người xử lý", "TenNguoiXuLy", 120);
             UIHelper.AddColumn(dgv, "GhiChu", "Ghi chú", "GhiChu", 150);
 
             pnlGrid.Controls.Add(dgv);

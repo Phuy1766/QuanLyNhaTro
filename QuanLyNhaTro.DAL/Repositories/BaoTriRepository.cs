@@ -9,8 +9,8 @@ namespace QuanLyNhaTro.DAL.Repositories
         protected override string GetPrimaryKey() => "TicketId";
 
         protected override string GetInsertQuery() => @"
-            INSERT INTO BAOTRI_TICKET (MaTicket, PhongId, KhachId, TieuDe, MoTa, MucDoUuTien, TrangThai)
-            VALUES (@MaTicket, @PhongId, @KhachId, @TieuDe, @MoTa, @MucDoUuTien, @TrangThai);
+            INSERT INTO BAOTRI_TICKET (MaTicket, PhongId, KhachId, LoaiSuCo, TieuDe, MoTa, MucDoUuTien, TrangThai)
+            VALUES (@MaTicket, @PhongId, @KhachId, @LoaiSuCo, @TieuDe, @MoTa, @MucDoUuTien, @TrangThai);
             SELECT CAST(SCOPE_IDENTITY() as int);";
 
         protected override string GetUpdateQuery() => @"
@@ -142,7 +142,7 @@ namespace QuanLyNhaTro.DAL.Repositories
         {
             using var conn = GetConnection();
             var sql = @"
-                SELECT bt.*, p.MaPhong, u.FullName AS NguoiXuLy
+                SELECT bt.*, p.MaPhong, u.FullName AS TenNguoiXuLy
                 FROM BAOTRI_TICKET bt
                 JOIN PHONGTRO p ON bt.PhongId = p.PhongId
                 LEFT JOIN USERS u ON bt.NguoiXuLy = u.UserId

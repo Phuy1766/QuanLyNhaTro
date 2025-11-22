@@ -42,17 +42,34 @@ namespace QuanLyNhaTro.UI.UserControls
             btnEmail.Width = 100;
             btnEmail.Click += BtnEmail_Click;
 
+            // Filter Tháng với option "Tất cả"
             var lblThang = new Label { Text = "Tháng:", Location = new Point(490, 18), AutoSize = true };
-            dtpThang = new DateTimePicker { Location = new Point(540, 14), Size = new Size(100, 25), Format = DateTimePickerFormat.Custom, CustomFormat = "MM/yyyy", ShowUpDown = true };
-            dtpThang.ValueChanged += (s, e) => LoadData();
+            var cboThang = new ComboBox { Location = new Point(540, 14), Size = new Size(120, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboThang.Items.Add("-- Tất cả --");
 
-            var lblFilter = new Label { Text = "TT:", Location = new Point(660, 18), AutoSize = true };
-            cboTrangThai = new ComboBox { Location = new Point(690, 14), Size = new Size(130, 25), DropDownStyle = ComboBoxStyle.DropDownList };
-            cboTrangThai.Items.AddRange(new object[] { "-- Tất cả --", "ChuaThanhToan", "DaThanhToan", "QuaHan" });
+            // Thêm các tháng từ tháng hiện tại trở về trước 12 tháng
+            var today = DateTime.Today;
+            for (int i = 0; i < 12; i++)
+            {
+                var month = today.AddMonths(-i);
+                cboThang.Items.Add(month.ToString("MM/yyyy"));
+            }
+            cboThang.SelectedIndex = 0; // Mặc định là "Tất cả"
+            cboThang.SelectedIndexChanged += (s, e) => LoadData();
+
+            // Lưu ComboBox tháng vào field để dùng trong LoadData
+            dtpThang = new DateTimePicker { Visible = false }; // Ẩn đi nhưng giữ lại để tránh lỗi
+
+            var lblFilter = new Label { Text = "TT:", Location = new Point(680, 18), AutoSize = true };
+            cboTrangThai = new ComboBox { Location = new Point(710, 14), Size = new Size(150, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            cboTrangThai.Items.AddRange(new object[] { "-- Tất cả --", "ChuaThanhToan", "ChoXacNhan", "DaThanhToan", "QuaHan" });
             cboTrangThai.SelectedIndex = 0;
             cboTrangThai.SelectedIndexChanged += (s, e) => LoadData();
 
-            pnlToolbar.Controls.AddRange(new Control[] { btnCreate, btnBatch, btnPay, btnEmail, lblThang, dtpThang, lblFilter, cboTrangThai });
+            pnlToolbar.Controls.AddRange(new Control[] { btnCreate, btnBatch, btnPay, btnEmail, lblThang, cboThang, lblFilter, cboTrangThai });
+
+            // Lưu cboThang để sử dụng
+            pnlToolbar.Tag = cboThang;
 
             var pnlGrid = new Panel { Dock = DockStyle.Fill, BackColor = ThemeManager.Surface, Padding = new Padding(15) };
             dgv = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = ThemeManager.Surface, BorderStyle = BorderStyle.None };
@@ -91,7 +108,16 @@ namespace QuanLyNhaTro.UI.UserControls
             var colName = dgv.Columns[e.ColumnIndex].Name;
             if (colName == "TrangThai" && e.Value != null)
             {
-                e.CellStyle!.ForeColor = UIHelper.GetStatusColor(e.Value.ToString()!);
+                var status = e.Value.ToString();
+                // Hiển thị text tiếng Việt
+                e.Value = GetTrangThaiDisplay(status!);
+                e.CellStyle!.ForeColor = status switch
+                {
+                    "DaThanhToan" => Color.FromArgb(39, 174, 96),     // Xanh lá
+                    "ChoXacNhan" => Color.FromArgb(255, 193, 7),      // Vàng
+                    "QuaHan" => Color.FromArgb(231, 76, 60),          // Đỏ
+                    _ => Color.FromArgb(230, 126, 34)                  // Cam
+                };
                 e.CellStyle.Font = new Font(dgv.Font, FontStyle.Bold);
             }
             if ((colName == "TienPhong" || colName == "TongTienDichVu" || colName == "TongCong" || colName == "DaThanhToan" || colName == "ConNo") && e.Value != null)
@@ -100,12 +126,47 @@ namespace QuanLyNhaTro.UI.UserControls
                 e.Value = ((DateTime)e.Value).ToString("MM/yyyy");
         }
 
+        private string GetTrangThaiDisplay(string trangThai)
+        {
+            return trangThai switch
+            {
+                "DaThanhToan" => "Đã thanh toán",
+                "ChuaThanhToan" => "Chưa thanh toán",
+                "ChoXacNhan" => "Chờ xác nhận",
+                "QuaHan" => "Quá hạn",
+                _ => trangThai
+            };
+        }
+
         private async void LoadData()
         {
             try
             {
                 string? trangThai = cboTrangThai.SelectedIndex > 0 ? cboTrangThai.Text : null;
-                var data = await _service.GetAllAsync(trangThai, dtpThang.Value.Year, dtpThang.Value.Month);
+
+                // Lấy ComboBox tháng từ toolbar
+                var toolbar = this.Controls.OfType<Panel>().FirstOrDefault(p => p.Dock == DockStyle.Top);
+                var cboThang = toolbar?.Tag as ComboBox;
+
+                int? year = null;
+                int? month = null;
+
+                // Nếu chọn tháng cụ thể (không phải "Tất cả")
+                if (cboThang != null && cboThang.SelectedIndex > 0)
+                {
+                    var selected = cboThang.SelectedItem?.ToString();
+                    if (!string.IsNullOrEmpty(selected) && selected != "-- Tất cả --")
+                    {
+                        var parts = selected.Split('/');
+                        if (parts.Length == 2 && int.TryParse(parts[0], out int m) && int.TryParse(parts[1], out int y))
+                        {
+                            month = m;
+                            year = y;
+                        }
+                    }
+                }
+
+                var data = await _service.GetAllAsync(trangThai, year, month);
                 dgv.DataSource = data.ToList();
             }
             catch (Exception ex) { UIHelper.ShowError(ex.Message); }
@@ -124,9 +185,10 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private async void BtnBatch_Click(object? sender, EventArgs e)
         {
-            if (!UIHelper.Confirm($"Tạo hóa đơn hàng loạt cho tháng {dtpThang.Value:MM/yyyy}?")) return;
+            var today = DateTime.Today;
+            if (!UIHelper.Confirm($"Tạo hóa đơn hàng loạt cho tháng {today:MM/yyyy}?")) return;
 
-            var (success, failed, msg) = await _service.CreateBatchAsync(dtpThang.Value);
+            var (success, failed, msg) = await _service.CreateBatchAsync(today);
             UIHelper.ShowSuccess(msg);
             LoadData();
         }
@@ -135,6 +197,47 @@ namespace QuanLyNhaTro.UI.UserControls
         {
             if (_selected == null) { UIHelper.ShowWarning("Vui lòng chọn hóa đơn!"); return; }
             if (_selected.TrangThai == "DaThanhToan") { UIHelper.ShowWarning("Hóa đơn đã thanh toán!"); return; }
+
+            // Nếu là hóa đơn chờ xác nhận -> Hiển thị form xác nhận
+            if (_selected.TrangThai == "ChoXacNhan")
+            {
+                var confirmMsg = $"Xác nhận thanh toán hóa đơn?\n\n" +
+                    $"Hóa đơn: {_selected.MaHoaDon}\n" +
+                    $"Phòng: {_selected.MaPhong}\n" +
+                    $"Khách thuê: {_selected.TenKhachThue}\n" +
+                    $"Số tiền: {_selected.ConNo:N0} VNĐ\n\n" +
+                    $"Tenant đã xác nhận chuyển khoản.\n" +
+                    $"Bạn đã kiểm tra giao dịch?";
+
+                var result = MessageBox.Show(confirmMsg, "Xác nhận thanh toán",
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    var repo = new DAL.Repositories.HoaDonRepository();
+                    var success = await repo.AdminConfirmInvoicePaymentAsync(_selected.HoaDonId, 1, true);
+                    if (success)
+                    {
+                        UIHelper.ShowSuccess("Đã xác nhận thanh toán thành công!");
+                        LoadData();
+                    }
+                    else
+                    {
+                        UIHelper.ShowError("Có lỗi xảy ra khi xác nhận thanh toán!");
+                    }
+                }
+                else if (result == DialogResult.No)
+                {
+                    var repo = new DAL.Repositories.HoaDonRepository();
+                    var success = await repo.AdminConfirmInvoicePaymentAsync(_selected.HoaDonId, 1, false);
+                    if (success)
+                    {
+                        UIHelper.ShowSuccess("Đã từ chối xác nhận thanh toán!");
+                        LoadData();
+                    }
+                }
+                return;
+            }
 
             using var frm = new frmPayment(_selected);
             if (frm.ShowDialog() == DialogResult.OK) LoadData();

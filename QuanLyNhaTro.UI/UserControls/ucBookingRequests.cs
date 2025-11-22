@@ -337,7 +337,7 @@ namespace QuanLyNhaTro.UI.UserControls
             pnlDetailContent = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = ThemeManager.Surface,
+                BackColor = Color.Transparent,
                 Visible = false,
                 AutoScroll = true
             };
@@ -419,33 +419,44 @@ namespace QuanLyNhaTro.UI.UserControls
 
             y += 32;
 
-            // ===== ACTION BUTTONS =====
+            // ===== ACTION BUTTONS (dock dưới cùng, luôn nhìn thấy) =====
             var pnlActions = new Panel
             {
-                Location = new Point(0, y),
-                Size = new Size(650, 50),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Bottom,
+                Height = 56,
+                BackColor = Color.FromArgb(249, 250, 252),
+                Padding = new Padding(0, 8, 0, 8)
             };
 
+            // Đường kẻ mảnh phân tách nội dung & action
+            var line = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 1,
+                BackColor = Color.FromArgb(229, 231, 235)
+            };
+            pnlActions.Controls.Add(line);
+
             int btnX = 0;
+            int btnSpacing = 10;
 
             btnConfirmPayment = CreateActionButton("💵 Xác nhận đã nhận tiền", btnX, ThemeManager.Success);
             btnConfirmPayment.Click += BtnConfirmPayment_Click;
-            btnX += 190;
+            btnX += btnConfirmPayment.Width + btnSpacing;
 
             btnCancelPayment = CreateActionButton("✗ Hủy giao dịch", btnX, ThemeManager.Error);
             btnCancelPayment.Width = 140;
             btnCancelPayment.Click += BtnCancelPayment_Click;
-            btnX += 150;
+            btnX += btnCancelPayment.Width + btnSpacing;
 
             btnApprove = CreateActionButton("✓ Duyệt & Tạo HĐ", btnX, ThemeManager.Primary);
             btnApprove.Click += BtnApprove_Click;
-            btnX += 160;
+            btnX += btnApprove.Width + btnSpacing;
 
             btnReject = CreateActionButton("✗ Từ chối", btnX, Color.FromArgb(239, 68, 68));
             btnReject.Width = 110;
             btnReject.Click += BtnReject_Click;
-            btnX += 120;
+            btnX += btnReject.Width + btnSpacing;
 
             btnCancel = CreateActionButton("Hủy YC", btnX, ThemeManager.Secondary);
             btnCancel.Width = 90;
@@ -455,7 +466,7 @@ namespace QuanLyNhaTro.UI.UserControls
                 btnConfirmPayment, btnCancelPayment, btnApprove, btnReject, btnCancel
             });
 
-            pnlDetailContent.Controls.AddRange(new Control[] {
+pnlDetailContent.Controls.AddRange(new Control[] {
                 lblDetailTitle, lblDetailStatus, lblDetailCreatedDate, lblDetailCreatedBy, pnlActions
             });
 
@@ -513,15 +524,17 @@ namespace QuanLyNhaTro.UI.UserControls
                 Text = text,
                 Location = new Point(x, 0),
                 Size = new Size(180, 40),
-                BackColor = color,
+                BackColor = Color.FromArgb(156, 163, 175), // Start as disabled gray
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
+                Cursor = Cursors.Default,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                Enabled = false
+                Enabled = false,
+                Tag = color // Lưu màu gốc
             };
             btn.FlatAppearance.BorderSize = 0;
             UIHelper.RoundControl(btn, 8);
+
             return btn;
         }
 
@@ -672,37 +685,45 @@ namespace QuanLyNhaTro.UI.UserControls
             };
         }
 
-        private void UpdateButtonStates(BookingRequestDTO request)
+private void UpdateButtonStates(BookingRequestDTO request)
+{
+    // Log cho dễ debug nếu cần
+    System.Diagnostics.Debug.WriteLine(
+        $"[Booking] Status={request.TrangThai}, PayStatus={request.TrangThaiThanhToan}, HasPaymentId={request.MaThanhToan.HasValue}");
+
+    void SetButtonState(Button btn, bool enabled)
+    {
+        btn.Enabled = enabled;
+        if (btn.Tag is Color originalColor)
         {
-            btnConfirmPayment.Enabled = false;
-            btnCancelPayment.Enabled = false;
-            btnApprove.Enabled = false;
-            btnReject.Enabled = false;
-            btnCancel.Enabled = false;
-
-            // Xác nhận thanh toán - chỉ khi trạng thái WaitingConfirm
-            if (request.TrangThai == "WaitingConfirm" && request.TrangThaiThanhToan == "WaitingConfirm")
-            {
-                btnConfirmPayment.Enabled = true;
-                btnCancelPayment.Enabled = true;
-            }
-
-            // Duyệt HĐ - chỉ khi trạng thái PendingApprove (đã thanh toán xong)
-            if (request.TrangThai == "PendingApprove")
-            {
-                btnApprove.Enabled = true;
-                btnReject.Enabled = true;
-            }
-
-            // Có thể từ chối nếu đang chờ thanh toán
-            if (request.TrangThai == "PendingPayment" || request.TrangThai == "WaitingConfirm")
-            {
-                btnReject.Enabled = true;
-                btnCancel.Enabled = true;
-            }
+            btn.BackColor = enabled ? originalColor : Color.FromArgb(156, 163, 175);
+            btn.Cursor = enabled ? Cursors.Hand : Cursors.Default;
         }
+    }
 
-        private void DgvRequests_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    // mặc định tắt hết
+    SetButtonState(btnConfirmPayment, false);
+    SetButtonState(btnCancelPayment, false);
+    SetButtonState(btnApprove, false);
+    SetButtonState(btnReject, false);
+    SetButtonState(btnCancel, false);
+
+    var status = request.TrangThai ?? string.Empty;
+
+    // Nếu đã xử lý xong rồi thì khóa hết nút lại
+    if (status == "Approved" || status == "Rejected" || status == "Canceled")
+        return;
+
+    // Còn lại (PendingPayment, WaitingConfirm, PendingApprove, ...):
+    // -> luôn cho phép thao tác, chỉ riêng Hủy giao dịch thì yêu cầu có MaThanhToan
+    SetButtonState(btnConfirmPayment, true);                    // luôn cho phép xác nhận tiền (dù là tiền mặt)
+    SetButtonState(btnApprove, true);                           // luôn cho phép duyệt & tạo HĐ
+    SetButtonState(btnReject, true);                            // luôn cho phép từ chối
+    SetButtonState(btnCancel, true);                            // luôn cho phép hủy yêu cầu
+    SetButtonState(btnCancelPayment, request.MaThanhToan.HasValue); // chỉ hủy giao dịch khi có mã thanh toán
+}
+
+private void DgvRequests_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
         {
             if (e.RowIndex < 0 || e.Value == null) return;
 

@@ -1,3 +1,7 @@
+using System;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
 using QuanLyNhaTro.DAL.Models;
 using QuanLyNhaTro.DAL.Repositories;
 using QuanLyNhaTro.UI.Helpers;
@@ -5,729 +9,651 @@ using QuanLyNhaTro.UI.Themes;
 
 namespace QuanLyNhaTro.UI.UserControls
 {
-    /// <summary>
-    /// Trang xem lịch sử yêu cầu thuê phòng của Tenant
-    /// Redesigned với Master-Detail layout
-    /// </summary>
     public partial class ucMyBookingRequests : UserControl
     {
-        private readonly YeuCauThuePhongRepository _repo = new();
-        private readonly PaymentRepository _paymentRepo = new();
-        private readonly int _userId;
+        private DataGridView dgvRequests;
+        private Panel pnlDetail;
+        private Panel pnlDetailContent;
+        private Label lblNoSelection;
+        private Panel pnlActions;
+        private Button btnPayDeposit;
+        private Button btnCancelRequest;
+        private Button btnViewContract;
 
-        // Left Panel - List Controls
-        private Panel pnlLeft = null!;
-        private DataGridView dgvRequests = null!;
-        private ComboBox cboTrangThai = null!;
-        private Label lblStats = null!;
-
-        // Right Panel - Detail Controls
-        private Panel pnlRight = null!;
-        private Panel pnlDetailContent = null!;
-        private Label lblNoSelection = null!;
-
-        // Detail Section Controls
-        private Label lblDetailTitle = null!;
-        private Label lblDetailStatus = null!;
-        private Label lblDetailCreatedDate = null!;
-
-        // Room Info Block
-        private Label lblRoomBuilding = null!;
-        private Label lblRoomCode = null!;
-        private Label lblRoomType = null!;
-        private Label lblRoomPrice = null!;
-        private Label lblStartDate = null!;
-        private Label lblNumPeople = null!;
-        private Label lblDepositMonths = null!;
-
-        // Payment Info Block
-        private Label lblPaymentAmount = null!;
-        private Label lblPaymentMethod = null!;
-        private Label lblPaymentContent = null!;
-        private Label lblPaymentDate = null!;
-        private Label lblPaymentStatus = null!;
-
-        // Status Info Block
-        private Label lblRequestStatus = null!;
-        private Label lblProcessDate = null!;
-        private Label lblRejectReason = null!;
-        private Label lblNote = null!;
-
-        // Action Buttons
-        private Button btnPayDeposit = null!;
-        private Button btnCancelRequest = null!;
-        private Button btnViewContract = null!;
-
-        private YeuCauThuePhong? _selectedRequest = null;
+        private YeuCauThuePhongRepository _requestRepo;
+        private PaymentRepository _paymentRepo;
+        private int _currentTenantId;
+        private YeuCauThuePhong _selectedRequest;
 
         public ucMyBookingRequests(int userId)
         {
-            _userId = userId;
+            _currentTenantId = userId;
+            _requestRepo = new YeuCauThuePhongRepository();
+            _paymentRepo = new PaymentRepository();
             InitializeComponent();
             CreateLayout();
-            // Responsive layout khi thay đổi kích thước
-            this.Resize += (_, __) => ApplyResponsiveLayout();
-            ApplyResponsiveLayout();
-            LoadData();
+            LoadRequests(); // ✅ GỌI LOAD DATA
+        }
+
+        public void Initialize(int tenantId)
+        {
+            _currentTenantId = tenantId;
+            LoadRequests();
         }
 
         private void CreateLayout()
         {
-            this.BackColor = ThemeManager.Background;
             this.Padding = new Padding(20);
+            this.BackColor = ColorTranslator.FromHtml("#F3F4F6");
 
-            // ===== HEADER PANEL =====
-            var pnlHeader = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 100,
-                BackColor = ThemeManager.Surface,
-                Padding = new Padding(20)
-            };
-            UIHelper.RoundControl(pnlHeader, 12);
-
-            // Title
-            var lblTitle = new Label
-            {
-                Text = "Yêu cầu thuê của tôi",
-                Font = new Font("Segoe UI Semibold", 16),
-                ForeColor = ThemeManager.TextPrimary,
-                Location = new Point(0, 0),
-                AutoSize = true
-            };
-
-            var lblSubtitle = new Label
-            {
-                Text = "Quản lý các yêu cầu thuê phòng của bạn và theo dõi trạng thái xử lý.",
-                Font = new Font("Segoe UI", 10),
-                ForeColor = ThemeManager.TextSecondary,
-                Location = new Point(0, 30),
-                AutoSize = true
-            };
-
-            lblStats = new Label
-            {
-                Text = "Tổng: 0 | Chờ duyệt: 0 | Đã duyệt: 0 | Từ chối: 0",
-                Font = new Font("Segoe UI", 10),
-                ForeColor = ThemeManager.TextSecondary,
-                Location = new Point(0, 55),
-                AutoSize = true
-            };
-
-            // Filter Row
-            int filterY = 65;
-            int filterX = 450;
-
-            var lblStatus = new Label
-            {
-                Text = "Trạng thái:",
-                Location = new Point(filterX, filterY + 7),
-                AutoSize = true,
-                ForeColor = ThemeManager.TextPrimary
-            };
-            filterX += 80;
-
-            cboTrangThai = new ComboBox
-            {
-                Location = new Point(filterX, filterY),
-                Size = new Size(180, 30),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 9)
-            };
-            cboTrangThai.Items.AddRange(new object[] {
-                "Tất cả",
-                "Chờ thanh toán",
-                "Chờ duyệt",
-                "Đã duyệt",
-                "Từ chối",
-                "Đã hủy"
-            });
-            cboTrangThai.SelectedIndex = 0;
-            cboTrangThai.SelectedIndexChanged += (s, e) => LoadData();
-            filterX += 200;
-
-            var btnRefresh = new Button
-            {
-                Text = "↻",
-                Location = new Point(filterX, filterY - 2),
-                Size = new Size(35, 35),
-                BackColor = ThemeManager.Primary,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 14)
-            };
-            btnRefresh.FlatAppearance.BorderSize = 0;
-            UIHelper.RoundControl(btnRefresh, 8);
-            btnRefresh.Click += (s, e) => LoadData();
-
-            pnlHeader.Controls.AddRange(new Control[] {
-                lblTitle, lblSubtitle, lblStats, lblStatus, cboTrangThai, btnRefresh
-            });
-
-            // ===== MAIN CONTAINER (Split into Left and Right) =====
-            var pnlMain = new Panel
+            TableLayoutPanel mainLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0)
+                ColumnCount = 2,
+                RowCount = 1,
+                ColumnStyles = {
+                    new ColumnStyle(SizeType.Percent, 42F),
+                    new ColumnStyle(SizeType.Percent, 58F)
+                }
             };
 
-            // ===== LEFT PANEL - LIST (40%) =====
-            pnlLeft = new Panel
-            {
-                Dock = DockStyle.Left,
-                Width = (int)(this.Width * 0.40),
-                BackColor = ThemeManager.Surface,
-                Padding = new Padding(20)
-            };
-            UIHelper.RoundControl(pnlLeft, 12);
+            Panel pnlList = CreateListPanel();
+            pnlDetail = CreateDetailPanel();
 
-            var lblListTitle = new Label
+            mainLayout.Controls.Add(pnlList, 0, 0);
+            mainLayout.Controls.Add(pnlDetail, 1, 0);
+
+            this.Controls.Add(mainLayout);
+        }
+
+        private Panel CreateListPanel()
+        {
+            Panel panel = new Panel
             {
-                Text = "Danh sách yêu cầu",
-                Font = new Font("Segoe UI Semibold", 12),
-                ForeColor = ThemeManager.TextPrimary,
-                Location = new Point(0, 0),
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 10, 0)
+            };
+
+            Label lblTitle = new Label
+            {
+                Text = "Danh sách yêu cầu thuê",
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                ForeColor = ColorTranslator.FromHtml("#1F2937"),
                 AutoSize = true,
-                Dock = DockStyle.Top,
-                Height = 30,
-                Padding = new Padding(0, 0, 0, 10)
+                Location = new Point(0, 0)
             };
 
             dgvRequests = new DataGridView
             {
-                Dock = DockStyle.Fill,
-                BackgroundColor = ThemeManager.Surface,
+                Location = new Point(0, 35),
+                Width = panel.Width,
+                Height = panel.Height - 35,
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.None,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                AutoGenerateColumns = false,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 RowHeadersVisible = false,
-                ColumnHeadersHeight = 40
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersHeight = 40,
+                RowTemplate = { Height = 45 }
             };
-            UIHelper.StyleDataGridView(dgvRequests);
-            SetupListColumns();
+
+            dgvRequests.ColumnHeadersDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#F9FAFB");
+            dgvRequests.ColumnHeadersDefaultCellStyle.ForeColor = ColorTranslator.FromHtml("#374151");
+            dgvRequests.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dgvRequests.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dgvRequests.ColumnHeadersDefaultCellStyle.Padding = new Padding(10, 0, 0, 0);
+
+            dgvRequests.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#DBEAFE");
+            dgvRequests.DefaultCellStyle.SelectionForeColor = ColorTranslator.FromHtml("#1E40AF");
+            dgvRequests.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
+            dgvRequests.DefaultCellStyle.Padding = new Padding(10, 5, 10, 5);
+
             dgvRequests.SelectionChanged += DgvRequests_SelectionChanged;
             dgvRequests.CellFormatting += DgvRequests_CellFormatting;
 
-            pnlLeft.Controls.Add(dgvRequests);
-            pnlLeft.Controls.Add(lblListTitle);
+            SetupListColumns();
 
-            // ===== RIGHT PANEL - DETAIL (60%) =====
-            pnlRight = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = ThemeManager.Surface,
-                Padding = new Padding(20)
-            };
-            UIHelper.RoundControl(pnlRight, 12);
+            panel.Controls.Add(lblTitle);
+            panel.Controls.Add(dgvRequests);
 
-            CreateDetailPanel();
-
-            // Add spacer between left and right
-            var spacer = new Panel
-            {
-                Dock = DockStyle.Left,
-                Width = 20,
-                BackColor = Color.Transparent
-            };
-
-            pnlMain.Controls.Add(pnlRight);
-            pnlMain.Controls.Add(spacer);
-            pnlMain.Controls.Add(pnlLeft);
-
-            // Add spacer between header and main
-            var spacerTop = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 20,
-                BackColor = Color.Transparent
-            };
-
-            this.Controls.Add(pnlMain);
-            this.Controls.Add(spacerTop);
-            this.Controls.Add(pnlHeader);
-        }
-
-
-        /// <summary>
-        /// Căn lại độ rộng panel danh sách (trái) ~40% màn hình,
-        /// có giới hạn min/max để không quá nhỏ hoặc quá to.
-        /// </summary>
-        private void ApplyResponsiveLayout()
-        {
-            if (pnlLeft == null || pnlRight == null) return;
-
-            int totalWidth = this.ClientSize.Width - this.Padding.Left - this.Padding.Right;
-            if (totalWidth <= 0) return;
-
-            int leftWidth = (int)(totalWidth * 0.4);
-
-            int minLeft = 380;
-            int maxLeft = 600;
-            if (leftWidth < minLeft) leftWidth = minLeft;
-            if (leftWidth > maxLeft) leftWidth = maxLeft;
-
-            pnlLeft.Width = leftWidth;
-        }
-
-
-        private void CreateDetailPanel()
-        {
-            // No Selection Message
-            lblNoSelection = new Label
-            {
-                Text = "Chọn một yêu cầu để xem chi tiết\n\nBạn chưa có yêu cầu nào? Hãy vào 'Tìm phòng trống' để bắt đầu.",
-                Font = new Font("Segoe UI", 11),
-                ForeColor = ThemeManager.TextSecondary,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Fill
-            };
-
-            // Detail Content Panel (hidden initially)
-            pnlDetailContent = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = ThemeManager.Surface,
-                Visible = false,
-                AutoScroll = true
-            };
-
-            // Header
-            lblDetailTitle = new Label
-            {
-                Text = "Chi tiết yêu cầu #0000",
-                Font = new Font("Segoe UI Semibold", 14),
-                ForeColor = ThemeManager.TextPrimary,
-                Location = new Point(0, 0),
-                Size = new Size(400, 30)
-            };
-
-            lblDetailStatus = new Label
-            {
-                Text = "Chờ duyệt",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.White,
-                BackColor = ThemeManager.Warning,
-                Location = new Point(410, 5),
-                Size = new Size(120, 25),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            UIHelper.RoundControl(lblDetailStatus, 6);
-
-            lblDetailCreatedDate = new Label
-            {
-                Text = "Ngày gửi: 01/01/2025",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = ThemeManager.TextSecondary,
-                Location = new Point(0, 35),
-                AutoSize = true
-            };
-
-            int y = 65;
-
-            // ===== ROOM INFO BLOCK =====
-            var roomLabels = CreateInfoBlock(pnlDetailContent, "Thông tin phòng đăng ký", y,
-                new[] { "Tòa nhà:", "Mã phòng:", "Loại phòng:", "Giá thuê/tháng:", "Ngày dự kiến thuê:", "Số người:", "Số tháng cọc:" });
-            lblRoomBuilding = roomLabels[0];
-            lblRoomCode = roomLabels[1];
-            lblRoomType = roomLabels[2];
-            lblRoomPrice = roomLabels[3];
-            lblStartDate = roomLabels[4];
-            lblNumPeople = roomLabels[5];
-            lblDepositMonths = roomLabels[6];
-            y = roomLabels[^1].Top + 25;
-
-            y += 20;
-
-            // ===== PAYMENT INFO BLOCK =====
-            var paymentLabels = CreateInfoBlock(pnlDetailContent, "Thông tin thanh toán cọc", y,
-                new[] { "Số tiền cọc:", "Hình thức:", "Nội dung CK:", "Thời gian TT:", "Trạng thái TT:" });
-            lblPaymentAmount = paymentLabels[0];
-            lblPaymentMethod = paymentLabels[1];
-            lblPaymentContent = paymentLabels[2];
-            lblPaymentDate = paymentLabels[3];
-            lblPaymentStatus = paymentLabels[4];
-            y = paymentLabels[^1].Top + 25;
-
-            y += 20;
-
-            // ===== STATUS INFO BLOCK =====
-            var statusLabels = CreateInfoBlock(pnlDetailContent, "Trạng thái xử lý", y,
-                new[] { "Trạng thái:", "Ngày xử lý:", "Lý do từ chối:", "Ghi chú:" });
-            lblRequestStatus = statusLabels[0];
-            lblProcessDate = statusLabels[1];
-            lblRejectReason = statusLabels[2];
-            lblNote = statusLabels[3];
-            y = statusLabels[^1].Top + 25;
-
-            y += 30;
-
-            // ===== ACTION BUTTONS =====
-            var pnlActions = new Panel
-            {
-                Location = new Point(0, y),
-                Size = new Size(650, 50),
-                BackColor = Color.Transparent
-            };
-
-            int btnX = 0;
-
-            btnPayDeposit = CreateActionButton("💳 Thanh toán cọc QR", btnX, ThemeManager.Success);
-            btnPayDeposit.Width = 180;
-            btnPayDeposit.Click += BtnPayDeposit_Click;
-            btnX += 190;
-
-            btnCancelRequest = CreateActionButton("✗ Hủy yêu cầu", btnX, ThemeManager.Error);
-            btnCancelRequest.Width = 130;
-            btnCancelRequest.Click += BtnCancelRequest_Click;
-            btnX += 140;
-
-            btnViewContract = CreateActionButton("📄 Xem hợp đồng", btnX, ThemeManager.Primary);
-            btnViewContract.Width = 150;
-            btnViewContract.Click += BtnViewContract_Click;
-
-            pnlActions.Controls.AddRange(new Control[] {
-                btnPayDeposit, btnCancelRequest, btnViewContract
-            });
-
-            pnlDetailContent.Controls.AddRange(new Control[] {
-                lblDetailTitle, lblDetailStatus, lblDetailCreatedDate, pnlActions
-            });
-
-            pnlRight.Controls.Add(pnlDetailContent);
-            pnlRight.Controls.Add(lblNoSelection);
-        }
-
-        private Label[] CreateInfoBlock(Panel parent, string title, int startY, string[] fieldLabels)
-        {
-            var lblBlockTitle = new Label
-            {
-                Text = title,
-                Font = new Font("Segoe UI Semibold", 11),
-                ForeColor = ThemeManager.Primary,
-                Location = new Point(0, startY),
-                AutoSize = true
-            };
-            parent.Controls.Add(lblBlockTitle);
-
-            int y = startY + 30;
-            var valueLabels = new List<Label>();
-
-            foreach (var fieldLabel in fieldLabels)
-            {
-                var lbl = new Label
-                {
-                    Text = fieldLabel,
-                    Font = new Font("Segoe UI", 9),
-                    ForeColor = ThemeManager.TextSecondary,
-                    Location = new Point(20, y),
-                    Size = new Size(150, 20)
-                };
-
-                var valueLabel = new Label
-                {
-                    Text = "—",
-                    Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                    ForeColor = ThemeManager.TextPrimary,
-                    Location = new Point(180, y),
-                    Size = new Size(400, 20)
-                };
-
-                parent.Controls.AddRange(new Control[] { lbl, valueLabel });
-                valueLabels.Add(valueLabel);
-                y += 25;
-            }
-
-            return valueLabels.ToArray();
-        }
-
-        private Button CreateActionButton(string text, int x, Color color)
-        {
-            var btn = new Button
-            {
-                Text = text,
-                Location = new Point(x, 0),
-                Size = new Size(180, 40),
-                BackColor = color,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                Enabled = false,
-                Visible = false
-            };
-            btn.FlatAppearance.BorderSize = 0;
-            UIHelper.RoundControl(btn, 8);
-            return btn;
+            return panel;
         }
 
         private void SetupListColumns()
         {
             dgvRequests.Columns.Clear();
-            UIHelper.AddColumn(dgvRequests, "MaYeuCau", "Mã YC", "MaYeuCau", 70);
-            UIHelper.AddColumn(dgvRequests, "NgayGui", "Ngày tạo", "NgayGui", 90);
-            UIHelper.AddColumn(dgvRequests, "MaPhong", "Phòng", "MaPhong", 90);
-            UIHelper.AddColumn(dgvRequests, "GiaPhong", "Giá thuê", "GiaPhong", 110);
-            UIHelper.AddColumn(dgvRequests, "TrangThai", "Trạng thái", "TrangThai", 120);
+
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "MaYeuCau",
+                HeaderText = "Mã YC",
+                DataPropertyName = "MaYeuCau",
+                FillWeight = 20
+            });
+
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "NgayGui",
+                HeaderText = "Ngày tạo",
+                DataPropertyName = "NgayGui",
+                FillWeight = 25,
+                DefaultCellStyle = { Format = "dd/MM/yyyy" }
+            });
+
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "MaPhong",
+                HeaderText = "Phòng",
+                DataPropertyName = "MaPhong",
+                FillWeight = 20
+            });
+
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "GiaPhong",
+                HeaderText = "Giá thuê",
+                DataPropertyName = "GiaPhong",
+                FillWeight = 20,
+                DefaultCellStyle = { Format = "N0", Alignment = DataGridViewContentAlignment.MiddleRight }
+            });
+
+            dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "TrangThai",
+                HeaderText = "Trạng thái",
+                DataPropertyName = "TrangThai",
+                FillWeight = 25
+            });
         }
 
-        private async void LoadData()
+        private void DgvRequests_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
         {
-            try
+            if (dgvRequests.Columns[e.ColumnIndex].Name == "TrangThai" && e.Value != null)
             {
-                var requests = (await _repo.GetByTenantAsync(_userId)).ToList();
-
-                // Apply status filter
-                var selectedStatus = cboTrangThai.SelectedItem?.ToString();
-                if (selectedStatus != "Tất cả")
-                {
-                    if (selectedStatus == "Chờ duyệt")
-                    {
-                        var multiStatus = new[] { "Pending", "WaitingConfirm", "PendingApprove" };
-                        requests = requests.Where(r => multiStatus.Contains(r.TrangThai)).ToList();
-                    }
-                    else
-                    {
-                        var statusFilter = selectedStatus switch
-                        {
-                            "Chờ thanh toán" => "PendingPayment",
-                            "Đã duyệt" => "Approved",
-                            "Từ chối" => "Rejected",
-                            "Đã hủy" => "Canceled",
-                            _ => (string?)null
-                        };
-
-                        if (statusFilter != null)
-                        {
-                            requests = requests.Where(r => r.TrangThai == statusFilter).ToList();
-                        }
-                    }
-                }
-
-                dgvRequests.DataSource = requests;
-
-                // Format columns
-                if (dgvRequests.Columns.Contains("NgayGui"))
-                    dgvRequests.Columns["NgayGui"]!.DefaultCellStyle.Format = "dd/MM/yyyy";
-                if (dgvRequests.Columns.Contains("GiaPhong"))
-                    dgvRequests.Columns["GiaPhong"]!.DefaultCellStyle.Format = "#,##0";
-
-                // Stats
-                var pending = requests.Count(r => r.TrangThai == "Pending" || r.TrangThai == "PendingPayment" || r.TrangThai == "WaitingConfirm" || r.TrangThai == "PendingApprove");
-                var approved = requests.Count(r => r.TrangThai == "Approved");
-                var rejected = requests.Count(r => r.TrangThai == "Rejected");
-                lblStats.Text = $"Tổng: {requests.Count} | Chờ duyệt: {pending} | Đã duyệt: {approved} | Từ chối: {rejected}";
-            }
-            catch (Exception ex)
-            {
-                UIHelper.ShowError($"Lỗi tải dữ liệu: {ex.Message}");
+                string status = e.Value.ToString();
+                e.Value = GetStatusDisplayText(status);
+                e.CellStyle.ForeColor = GetStatusColor(status);
             }
         }
 
-        private void DgvRequests_SelectionChanged(object? sender, EventArgs e)
+        private string GetStatusDisplayText(string status)
         {
-            if (dgvRequests.SelectedRows.Count == 0)
+            switch (status)
             {
-                lblNoSelection.Visible = true;
-                pnlDetailContent.Visible = false;
-                _selectedRequest = null;
-                return;
+                case "PendingPayment": return "Chờ thanh toán";
+                case "WaitingConfirm": return "Chờ xác nhận";
+                case "PendingApprove": return "Chờ duyệt";
+                case "Pending": return "Đang xử lý";
+                case "Approved": return "Đã duyệt";
+                case "Rejected": return "Từ chối";
+                case "Canceled": return "Đã hủy";
+                default: return status;
             }
-
-            _selectedRequest = dgvRequests.SelectedRows[0].DataBoundItem as YeuCauThuePhong;
-            if (_selectedRequest == null) return;
-
-            LoadDetailPanel(_selectedRequest);
-            lblNoSelection.Visible = false;
-            pnlDetailContent.Visible = true;
-        }
-
-        private async void LoadDetailPanel(YeuCauThuePhong request)
-        {
-            // Header
-            lblDetailTitle.Text = $"Chi tiết yêu cầu #{request.MaYeuCau}";
-            lblDetailStatus.Text = GetStatusDisplay(request.TrangThai);
-            lblDetailStatus.BackColor = GetStatusColor(request.TrangThai);
-            lblDetailCreatedDate.Text = $"Ngày gửi: {request.NgayGui:dd/MM/yyyy}";
-
-            // Room Info
-            lblRoomBuilding.Text = request.TenToaNha ?? "—";
-            lblRoomCode.Text = request.MaPhong ?? "—";
-            lblRoomType.Text = request.DienTich.HasValue && request.SoNguoiToiDa.HasValue
-                ? $"{request.DienTich:N0} m² - Tối đa {request.SoNguoiToiDa} người"
-                : "—";
-            lblRoomPrice.Text = request.GiaPhong.HasValue ? $"{request.GiaPhong:N0} VNĐ" : "—";
-            lblStartDate.Text = request.NgayBatDauMongMuon.ToString("dd/MM/yyyy");
-            lblNumPeople.Text = request.SoNguoi.ToString();
-            lblDepositMonths.Text = "1 tháng"; // Default, could be calculated
-
-            // Try to get payment info
-            BookingRequestDTO? paymentInfo = null;
-            try
-            {
-                var allRequests = await _paymentRepo.GetAllBookingRequestsAsync(null);
-                paymentInfo = allRequests.FirstOrDefault(r => r.MaYeuCau == request.MaYeuCau);
-            }
-            catch { }
-
-            // Payment Info
-            if (paymentInfo?.MaThanhToan != null)
-            {
-                lblPaymentAmount.Text = paymentInfo.SoTienCoc.HasValue ? $"{paymentInfo.SoTienCoc:N0} VNĐ" : "—";
-                lblPaymentMethod.Text = "QR Bank / Chuyển khoản";
-                lblPaymentContent.Text = $"NTPRO_{request.MaYeuCau}_{request.MaPhong}";
-                lblPaymentDate.Text = paymentInfo.NgayThanhToan.HasValue ? paymentInfo.NgayThanhToan.Value.ToString("dd/MM/yyyy HH:mm") : "—";
-                lblPaymentStatus.Text = paymentInfo.TrangThaiThanhToanDisplay;
-            }
-            else
-            {
-                lblPaymentAmount.Text = request.GiaPhong.HasValue ? $"{request.GiaPhong:N0} VNĐ" : "—";
-                lblPaymentMethod.Text = "Chưa có";
-                lblPaymentContent.Text = "—";
-                lblPaymentDate.Text = "—";
-                lblPaymentStatus.Text = "Chưa thanh toán";
-            }
-
-            // Status Info
-            lblRequestStatus.Text = GetStatusDisplay(request.TrangThai);
-            lblProcessDate.Text = request.NgayXuLy.HasValue ? request.NgayXuLy.Value.ToString("dd/MM/yyyy") : "—";
-            lblRejectReason.Text = !string.IsNullOrEmpty(request.LyDoTuChoi) ? request.LyDoTuChoi : "—";
-            lblNote.Text = !string.IsNullOrEmpty(request.GhiChu) ? request.GhiChu : "—";
-
-            UpdateButtonStates(request, paymentInfo);
-        }
-
-        private string GetStatusDisplay(string status)
-        {
-            return status switch
-            {
-                "PendingPayment" => "Chờ thanh toán",
-                "WaitingConfirm" => "Chờ xác nhận TT",
-                "PendingApprove" => "Chờ duyệt HĐ",
-                "Pending" => "Chờ duyệt",
-                "Approved" => "Đã duyệt",
-                "Rejected" => "Từ chối",
-                "Canceled" => "Đã hủy",
-                _ => status
-            };
         }
 
         private Color GetStatusColor(string status)
         {
-            return status switch
+            switch (status)
             {
-                "PendingPayment" => ThemeManager.Warning,
-                "WaitingConfirm" => Color.DarkOrange,
-                "PendingApprove" => ThemeManager.Primary,
-                "Pending" => ThemeManager.Warning,
-                "Approved" => ThemeManager.Success,
-                "Rejected" => ThemeManager.Error,
-                "Canceled" => ThemeManager.Secondary,
-                _ => ThemeManager.TextSecondary
-            };
+                case "Approved": return ColorTranslator.FromHtml("#10B981");
+                case "Rejected": return ColorTranslator.FromHtml("#EF4444");
+                case "Canceled": return ColorTranslator.FromHtml("#6B7280");
+                case "PendingPayment": return ColorTranslator.FromHtml("#F59E0B");
+                case "WaitingConfirm": return ColorTranslator.FromHtml("#3B82F6");
+                case "PendingApprove": return ColorTranslator.FromHtml("#8B5CF6");
+                case "Pending": return ColorTranslator.FromHtml("#6366F1");
+                default: return ColorTranslator.FromHtml("#6B7280");
+            }
         }
 
-        private void UpdateButtonStates(YeuCauThuePhong request, BookingRequestDTO? paymentInfo)
+        private Panel CreateDetailPanel()
         {
-            // Hide all buttons first
-            btnPayDeposit.Enabled = false;
+            Panel panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 0, 0, 0)
+            };
+
+            Panel innerPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(0)
+            };
+
+            RoundCorners(innerPanel, 12);
+
+            lblNoSelection = new Label
+            {
+                Text = "Chọn một yêu cầu để xem chi tiết",
+                Font = new Font("Segoe UI", 11F, FontStyle.Regular),
+                ForeColor = ColorTranslator.FromHtml("#9CA3AF"),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill
+            };
+
+            pnlDetailContent = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Visible = false,
+                Padding = new Padding(30, 25, 30, 25)
+            };
+
+            pnlActions = CreateActionsPanel();
+
+            innerPanel.Controls.Add(lblNoSelection);
+            innerPanel.Controls.Add(pnlDetailContent);
+            innerPanel.Controls.Add(pnlActions);
+
+            panel.Controls.Add(innerPanel);
+
+            return panel;
+        }
+
+        private Panel CreateActionsPanel()
+        {
+            Panel panel = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 80,
+                BackColor = ColorTranslator.FromHtml("#F9FAFC"),
+                Padding = new Padding(30, 15, 30, 15),
+                Visible = false
+            };
+
+            Panel lineTop = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 1,
+                BackColor = ColorTranslator.FromHtml("#E5E7EB")
+            };
+
+            FlowLayoutPanel flowButtons = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                Padding = new Padding(0)
+            };
+
+            btnPayDeposit = CreateButton("💳 Thanh toán cọc QR", ColorTranslator.FromHtml("#10B981"));
+            btnPayDeposit.Click += BtnPayDeposit_Click;
             btnPayDeposit.Visible = false;
-            btnCancelRequest.Enabled = false;
+
+            btnCancelRequest = CreateButton("✗ Hủy yêu cầu", ColorTranslator.FromHtml("#EF4444"));
+            btnCancelRequest.Click += BtnCancelRequest_Click;
             btnCancelRequest.Visible = false;
-            btnViewContract.Enabled = false;
+
+            btnViewContract = CreateButton("📄 Xem hợp đồng", ColorTranslator.FromHtml("#3B82F6"));
+            btnViewContract.Click += BtnViewContract_Click;
             btnViewContract.Visible = false;
 
-            // Chờ thanh toán - hiển thị nút thanh toán
-            if (request.TrangThai == "PendingPayment" || (paymentInfo?.TrangThaiThanhToan == "Pending"))
-            {
-                btnPayDeposit.Enabled = true;
-                btnPayDeposit.Visible = true;
-            }
+            flowButtons.Controls.Add(btnPayDeposit);
+            flowButtons.Controls.Add(btnCancelRequest);
+            flowButtons.Controls.Add(btnViewContract);
 
-            // Chờ duyệt hoặc chờ xác nhận - có thể hủy
-            if (request.TrangThai == "Pending" || request.TrangThai == "WaitingConfirm" || request.TrangThai == "PendingApprove")
-            {
-                btnCancelRequest.Enabled = true;
-                btnCancelRequest.Visible = true;
-            }
+            panel.Controls.Add(flowButtons);
+            panel.Controls.Add(lineTop);
 
-            // Đã duyệt - hiển thị nút xem hợp đồng
-            if (request.TrangThai == "Approved")
+            return panel;
+        }
+
+        private Button CreateButton(string text, Color color)
+        {
+            Button btn = new Button
             {
-                btnViewContract.Enabled = true;
-                btnViewContract.Visible = true;
+                Text = text,
+                Width = 180,
+                Height = 40,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = color,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0, 0, 10, 0)
+            };
+
+            btn.FlatAppearance.BorderSize = 0;
+            RoundCorners(btn, 6);
+
+            return btn;
+        }
+
+        private void RoundCorners(Control control, int radius)
+        {
+            System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.StartFigure();
+            path.AddArc(new Rectangle(0, 0, radius, radius), 180, 90);
+            path.AddArc(new Rectangle(control.Width - radius, 0, radius, radius), 270, 90);
+            path.AddArc(new Rectangle(control.Width - radius, control.Height - radius, radius, radius), 0, 90);
+            path.AddArc(new Rectangle(0, control.Height - radius, radius, radius), 90, 90);
+            path.CloseFigure();
+            control.Region = new Region(path);
+        }
+
+        private void DgvRequests_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvRequests.SelectedRows.Count > 0)
+            {
+                var row = dgvRequests.SelectedRows[0];
+                int maYeuCau = Convert.ToInt32(row.Cells["MaYeuCau"].Value);
+                LoadDetailPanel(maYeuCau);
+            }
+            else
+            {
+                ShowNoSelection();
             }
         }
 
-        private void DgvRequests_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        private void ShowNoSelection()
         {
-            if (dgvRequests.Columns[e.ColumnIndex].Name == "TrangThai" && e.Value != null)
-            {
-                var status = e.Value.ToString();
-                e.Value = GetStatusDisplay(status ?? "");
-                e.CellStyle.ForeColor = GetStatusColor(status ?? "");
-                e.CellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-                e.FormattingApplied = true;
-            }
+            lblNoSelection.Visible = true;
+            pnlDetailContent.Visible = false;
+            pnlActions.Visible = false;
+            _selectedRequest = null;
         }
 
-        private void BtnPayDeposit_Click(object? sender, EventArgs e)
+        private async void LoadRequests()
         {
-            if (_selectedRequest == null) return;
-
-            // TODO: Show QR payment dialog
-            UIHelper.ShowWarning("Chức năng thanh toán QR đang được phát triển.\n\nVui lòng liên hệ quản lý để thanh toán trực tiếp.");
-        }
-
-        private async void BtnCancelRequest_Click(object? sender, EventArgs e)
-        {
-            if (_selectedRequest == null) return;
-
-            var result = MessageBox.Show(
-                $"Bạn có chắc chắn muốn hủy yêu cầu thuê phòng #{_selectedRequest.MaYeuCau}?\n\n" +
-                $"Phòng: {_selectedRequest.MaPhong}\n" +
-                $"Ngày gửi: {_selectedRequest.NgayGui:dd/MM/yyyy}",
-                "Xác nhận hủy yêu cầu",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result != DialogResult.Yes) return;
-
             try
             {
-                var (success, message) = await _repo.RejectAsync(
-                    _selectedRequest.MaYeuCau,
-                    _userId,
-                    "Tenant tự hủy yêu cầu"
-                );
+                var requests = (await _requestRepo.GetByTenantAsync(_currentTenantId)).ToList();
+                dgvRequests.DataSource = requests.OrderByDescending(r => r.NgayGui).ToList();
 
-                if (success)
+                if (dgvRequests.Rows.Count == 0)
                 {
-                    UIHelper.ShowSuccess("Đã hủy yêu cầu thành công!");
-                    LoadData();
-                }
-                else
-                {
-                    UIHelper.ShowError(message);
+                    ShowNoSelection();
                 }
             }
             catch (Exception ex)
             {
-                UIHelper.ShowError($"Lỗi hủy yêu cầu: {ex.Message}");
+                MessageBox.Show($"Lỗi tải danh sách yêu cầu: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void BtnViewContract_Click(object? sender, EventArgs e)
+        private async void LoadDetailPanel(int maYeuCau)
+        {
+            try
+            {
+                var allRequests = await _requestRepo.GetByTenantAsync(_currentTenantId);
+                _selectedRequest = allRequests.FirstOrDefault(r => r.MaYeuCau == maYeuCau);
+
+                if (_selectedRequest == null)
+                {
+                    ShowNoSelection();
+                    return;
+                }
+
+                BookingRequestDTO paymentInfo = null;
+                try
+                {
+                    var allPayments = await _paymentRepo.GetAllBookingRequestsAsync(null);
+                    paymentInfo = allPayments.FirstOrDefault(p => p.MaYeuCau == maYeuCau);
+                }
+                catch { }
+
+                pnlDetailContent.Controls.Clear();
+
+                int yPos = 0;
+
+                Label lblHeader = new Label
+                {
+                    Text = $"Chi tiết yêu cầu #{_selectedRequest.MaYeuCau}",
+                    Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                    AutoSize = true,
+                    Location = new Point(0, yPos)
+                };
+                pnlDetailContent.Controls.Add(lblHeader);
+                yPos += 35;
+
+                Label lblDate = new Label
+                {
+                    Text = $"Ngày gửi: {_selectedRequest.NgayGui:dd/MM/yyyy HH:mm}",
+                    Font = new Font("Segoe UI", 9F),
+                    ForeColor = ColorTranslator.FromHtml("#6B7280"),
+                    AutoSize = true,
+                    Location = new Point(0, yPos)
+                };
+                pnlDetailContent.Controls.Add(lblDate);
+                yPos += 35;
+
+                Panel block1 = CreateInfoBlock("Thông tin phòng đăng ký", new[]
+                {
+                    new InfoItem("Tòa nhà", _selectedRequest.TenToaNha ?? "N/A"),
+                    new InfoItem("Phòng", _selectedRequest.MaPhong ?? "N/A"),
+                    new InfoItem("Loại phòng", _selectedRequest.DienTich.HasValue && _selectedRequest.SoNguoiToiDa.HasValue ? $"{_selectedRequest.DienTich:N0} m² - Tối đa {_selectedRequest.SoNguoiToiDa} người" : "N/A"),
+                    new InfoItem("Giá thuê", _selectedRequest.GiaPhong.HasValue ? _selectedRequest.GiaPhong.Value.ToString("N0") + " VNĐ/tháng" : "N/A"),
+                    new InfoItem("Ngày dự kiến chuyển vào", _selectedRequest.NgayBatDauMongMuon.ToString("dd/MM/yyyy")),
+                    new InfoItem("Số người ở", _selectedRequest.SoNguoi.ToString()),
+                    new InfoItem("Số tháng cọc", "1 tháng")
+                }, 0, yPos);
+                pnlDetailContent.Controls.Add(block1);
+                yPos += block1.Height + 20;
+
+                decimal soTienCoc = _selectedRequest.GiaPhong ?? 0;
+                string trangThaiThanhToan = "Chưa thanh toán";
+                DateTime? ngayThanhToan = null;
+
+                if (paymentInfo != null)
+                {
+                    if (paymentInfo.SoTienCoc.HasValue)
+                        soTienCoc = paymentInfo.SoTienCoc.Value;
+                    trangThaiThanhToan = paymentInfo.TrangThaiThanhToanDisplay ?? "Chưa thanh toán";
+                    ngayThanhToan = paymentInfo.NgayThanhToan;
+                }
+
+                Panel block2 = CreateInfoBlock("Thông tin thanh toán cọc", new[]
+                {
+                    new InfoItem("Số tiền cọc", soTienCoc.ToString("N0") + " VNĐ"),
+                    new InfoItem("Hình thức thanh toán", "QR Bank / Chuyển khoản"),
+                    new InfoItem("Nội dung chuyển khoản", $"NTPRO_{_selectedRequest.MaYeuCau}_{_selectedRequest.MaPhong}"),
+                    new InfoItem("Thời gian thanh toán", ngayThanhToan.HasValue ? ngayThanhToan.Value.ToString("dd/MM/yyyy HH:mm") : "Chưa thanh toán"),
+                    new InfoItem("Trạng thái thanh toán", trangThaiThanhToan)
+                }, 0, yPos);
+                pnlDetailContent.Controls.Add(block2);
+                yPos += block2.Height + 20;
+
+                Panel block3 = CreateInfoBlock("Trạng thái xử lý", new[]
+                {
+                    new InfoItem("Trạng thái", GetStatusDisplayText(_selectedRequest.TrangThai)),
+                    new InfoItem("Ngày xử lý", _selectedRequest.NgayXuLy.HasValue ? _selectedRequest.NgayXuLy.Value.ToString("dd/MM/yyyy HH:mm") : "Chưa xử lý"),
+                    new InfoItem("Lý do từ chối", string.IsNullOrEmpty(_selectedRequest.LyDoTuChoi) ? "N/A" : _selectedRequest.LyDoTuChoi),
+                    new InfoItem("Ghi chú", string.IsNullOrEmpty(_selectedRequest.GhiChu) ? "N/A" : _selectedRequest.GhiChu)
+                }, 0, yPos);
+                pnlDetailContent.Controls.Add(block3);
+
+                lblNoSelection.Visible = false;
+                pnlDetailContent.Visible = true;
+
+                UpdateButtonStates(paymentInfo);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi tải chi tiết: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private Panel CreateInfoBlock(string title, InfoItem[] items, int x, int y)
+        {
+            Panel block = new Panel
+            {
+                Location = new Point(x, y),
+                Width = pnlDetailContent.Width - 60,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = ColorTranslator.FromHtml("#F9FAFB"),
+                Padding = new Padding(20)
+            };
+
+            int blockY = 0;
+
+            Label lblTitle = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                AutoSize = true,
+                Location = new Point(0, blockY)
+            };
+            block.Controls.Add(lblTitle);
+            blockY += 30;
+
+            foreach (var item in items)
+            {
+                Label lblLabel = new Label
+                {
+                    Text = item.Label + ":",
+                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                    ForeColor = ColorTranslator.FromHtml("#6B7280"),
+                    AutoSize = false,
+                    Width = 200,
+                    Location = new Point(0, blockY),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+
+                Label lblValue = new Label
+                {
+                    Text = item.Value,
+                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                    AutoSize = false,
+                    Width = block.Width - 240,
+                    Location = new Point(210, blockY),
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+
+                block.Controls.Add(lblLabel);
+                block.Controls.Add(lblValue);
+                blockY += 28;
+            }
+
+            block.Height = blockY + 10;
+            RoundCorners(block, 8);
+
+            return block;
+        }
+
+        private void UpdateButtonStates(BookingRequestDTO paymentInfo)
+        {
+            btnPayDeposit.Visible = false;
+            btnPayDeposit.Enabled = false;
+            btnCancelRequest.Visible = false;
+            btnCancelRequest.Enabled = false;
+            btnViewContract.Visible = false;
+            btnViewContract.Enabled = false;
+
+            if (_selectedRequest == null)
+            {
+                pnlActions.Visible = false;
+                return;
+            }
+
+            string status = _selectedRequest.TrangThai;
+
+            if (status == "Approved" || status == "Rejected" || status == "Canceled")
+            {
+                if (status == "Approved")
+                {
+                    btnViewContract.Visible = true;
+                    btnViewContract.Enabled = true;
+                    btnViewContract.BackColor = ColorTranslator.FromHtml("#3B82F6");
+                    btnViewContract.Cursor = Cursors.Hand;
+                    pnlActions.Visible = true;
+                }
+                else
+                {
+                    pnlActions.Visible = false;
+                }
+                return;
+            }
+
+            bool showActions = false;
+
+            if (status == "PendingPayment" || (paymentInfo != null && paymentInfo.TrangThaiThanhToan == "Pending"))
+            {
+                btnPayDeposit.Visible = true;
+                btnPayDeposit.Enabled = true;
+                btnPayDeposit.BackColor = ColorTranslator.FromHtml("#10B981");
+                btnPayDeposit.Cursor = Cursors.Hand;
+                showActions = true;
+            }
+
+            if (status == "Pending" || status == "WaitingConfirm" || status == "PendingApprove")
+            {
+                btnCancelRequest.Visible = true;
+                btnCancelRequest.Enabled = true;
+                btnCancelRequest.BackColor = ColorTranslator.FromHtml("#EF4444");
+                btnCancelRequest.Cursor = Cursors.Hand;
+                showActions = true;
+            }
+
+            pnlActions.Visible = showActions;
+        }
+
+        private void BtnPayDeposit_Click(object sender, EventArgs e)
         {
             if (_selectedRequest == null) return;
 
-            // TODO: Navigate to contract view
-            UIHelper.ShowWarning("Chức năng xem hợp đồng đang được phát triển.\n\nVui lòng liên hệ quản lý để xem chi tiết hợp đồng.");
+            MessageBox.Show("Chức năng thanh toán cọc QR đang được phát triển.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private async void BtnCancelRequest_Click(object sender, EventArgs e)
+        {
+            if (_selectedRequest == null) return;
+
+            var result = MessageBox.Show($"Bạn có chắc chắn muốn hủy yêu cầu #{_selectedRequest.MaYeuCau}?",
+                "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    var cancelResult = await _requestRepo.RejectAsync(_selectedRequest.MaYeuCau, _currentTenantId, "Tenant tự hủy yêu cầu");
+
+                    if (cancelResult.Item1)
+                    {
+                        MessageBox.Show("Đã hủy yêu cầu thành công.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        LoadRequests();
+                        ShowNoSelection();
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Lỗi khi hủy yêu cầu: {cancelResult.Item2}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Lỗi khi hủy yêu cầu: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void BtnViewContract_Click(object sender, EventArgs e)
+        {
+            if (_selectedRequest == null) return;
+
+            MessageBox.Show("Chức năng xem hợp đồng đang được phát triển.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private struct InfoItem
+        {
+            public string Label;
+            public string Value;
+
+            public InfoItem(string label, string value)
+            {
+                Label = label;
+                Value = value;
+            }
         }
 
         private void InitializeComponent()

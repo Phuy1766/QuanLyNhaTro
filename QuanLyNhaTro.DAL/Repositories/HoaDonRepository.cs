@@ -244,5 +244,74 @@ namespace QuanLyNhaTro.DAL.Repositories
                 ORDER BY hd.ThangNam DESC";
             return await conn.QueryAsync<HoaDon>(sql, new { MaHopDong = maHopDong });
         }
+
+        /// <summary>
+        /// Đánh dấu hóa đơn chờ xác nhận thanh toán (tenant đã chuyển khoản)
+        /// </summary>
+        public async Task<bool> MarkAsPendingPaymentConfirmationAsync(int hoaDonId, int tenantUserId)
+        {
+            using var conn = GetConnection();
+            var sql = @"
+                UPDATE HOADON SET
+                    TrangThai = N'ChoXacNhan',
+                    GhiChu = CONCAT(ISNULL(GhiChu, ''), CHAR(13) + CHAR(10),
+                                   'Tenant xác nhận đã thanh toán lúc: ', FORMAT(GETDATE(), 'dd/MM/yyyy HH:mm')),
+                    UpdatedAt = GETDATE()
+                WHERE HoaDonId = @HoaDonId";
+            return await conn.ExecuteAsync(sql, new { HoaDonId = hoaDonId }) > 0;
+        }
+
+        /// <summary>
+        /// Admin xác nhận thanh toán hóa đơn
+        /// </summary>
+        public async Task<bool> AdminConfirmInvoicePaymentAsync(int hoaDonId, int adminUserId, bool isConfirmed, decimal? soTienThanhToan = null)
+        {
+            using var conn = GetConnection();
+
+            if (isConfirmed)
+            {
+                // Lấy thông tin hóa đơn
+                var hoaDon = await conn.QueryFirstOrDefaultAsync<HoaDon>(
+                    "SELECT * FROM HOADON WHERE HoaDonId = @HoaDonId",
+                    new { HoaDonId = hoaDonId });
+
+                if (hoaDon == null)
+                    return false;
+
+                var soTien = soTienThanhToan ?? hoaDon.ConNo;
+
+                var sql = @"
+                    UPDATE HOADON SET
+                        DaThanhToan = DaThanhToan + @SoTien,
+                        ConNo = TongCong - DaThanhToan - @SoTien,
+                        TrangThai = CASE WHEN TongCong <= DaThanhToan + @SoTien THEN N'DaThanhToan' ELSE N'ChuaThanhToan' END,
+                        NgayThanhToan = CASE WHEN TongCong <= DaThanhToan + @SoTien THEN GETDATE() ELSE NgayThanhToan END,
+                        GhiChu = CONCAT(ISNULL(GhiChu, ''), CHAR(13) + CHAR(10),
+                                       'Admin xác nhận thanh toán ', FORMAT(@SoTien, 'N0'), ' VNĐ lúc: ', FORMAT(GETDATE(), 'dd/MM/yyyy HH:mm')),
+                        UpdatedAt = GETDATE()
+                    WHERE HoaDonId = @HoaDonId";
+                return await conn.ExecuteAsync(sql, new { HoaDonId = hoaDonId, SoTien = soTien }) > 0;
+            }
+            else
+            {
+                // Từ chối thanh toán - đưa về trạng thái cũ
+                var sql = @"
+                    UPDATE HOADON SET
+                        TrangThai = CASE WHEN ConNo > 0 THEN N'ChuaThanhToan' ELSE N'DaThanhToan' END,
+                        GhiChu = CONCAT(ISNULL(GhiChu, ''), CHAR(13) + CHAR(10),
+                                       'Admin từ chối xác nhận thanh toán lúc: ', FORMAT(GETDATE(), 'dd/MM/yyyy HH:mm')),
+                        UpdatedAt = GETDATE()
+                    WHERE HoaDonId = @HoaDonId";
+                return await conn.ExecuteAsync(sql, new { HoaDonId = hoaDonId }) > 0;
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách hóa đơn chờ xác nhận thanh toán
+        /// </summary>
+        public async Task<IEnumerable<HoaDon>> GetPendingPaymentConfirmationAsync()
+        {
+            return await GetAllWithDetailsAsync("ChoXacNhan");
+        }
     }
 }

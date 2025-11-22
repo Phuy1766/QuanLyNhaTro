@@ -182,5 +182,50 @@ namespace QuanLyNhaTro.UI.Helpers
                 Padding = new Padding(15),
             };
         }
+                /// <summary>
+        /// Áp dụng hiệu ứng bóng đổ cho Card (giả lập shadow đẹp)
+        /// </summary>
+        public static void ApplyCardShadow(Control control)
+        {
+            // Bóng đổ giả lập bằng vẽ viền mờ
+            control.Paint += (sender, e) =>
+            {
+                var rect = new Rectangle(0, 0, control.Width, control.Height);
+                using var pen1 = new Pen(Color.FromArgb(25, 0, 0, 0), 20);
+                using var pen2 = new Pen(Color.FromArgb(15, 0, 0, 0), 35);
+                using var pen3 = new Pen(Color.FromArgb(8, 0, 0, 0), 50);
+
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.DrawRectangle(pen3, rect);
+                e.Graphics.DrawRectangle(pen2, rect);
+                e.Graphics.DrawRectangle(pen1, rect);
+            };
+
+            // Tạo độ nổi bằng margin
+            control.Margin = new Padding(15);
+        }
+
+        /// <summary>
+        /// Thêm cột vào DataGridView (phiên bản rút gọn, dùng trong ucMyInvoice)
+        /// </summary>
+        public static void AddColumn(DataGridView dgv, string name, string header, string dataProperty, int width)
+        {
+            var col = new DataGridViewTextBoxColumn
+            {
+                Name = name,
+                HeaderText = header,
+                DataPropertyName = dataProperty,
+                Width = width,
+                MinimumWidth = 80,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    Padding = new Padding(12, 10, 12, 10),
+                    Alignment = DataGridViewContentAlignment.MiddleLeft
+                }
+            };
+            dgv.Columns.Add(col);
+        }
+
     }
 }

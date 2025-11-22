@@ -284,9 +284,12 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private Panel CreateRoomCard(PhongTrongDTO room)
         {
+            // Responsive card width - calculate based on available space
+            int cardWidth = Math.Max(300, Math.Min(380, (this.Width - 80) / 3));
+
             var card = new Panel
             {
-                Size = new Size(320, 220),
+                Size = new Size(cardWidth, 240),
                 BackColor = Color.White,
                 Margin = new Padding(10),
                 Cursor = Cursors.Hand
@@ -295,6 +298,7 @@ namespace QuanLyNhaTro.UI.UserControls
 
             int y = 15;
             int padding = 15;
+            int cardContentWidth = cardWidth - (padding * 2);
 
             // Header: Room code + Building
             var lblHeader = new Label
@@ -324,37 +328,59 @@ namespace QuanLyNhaTro.UI.UserControls
             AddCardInfo(card, $"👥 Tối đa: {room.SoNguoiToiDa} người", padding, ref y);
             AddCardInfo(card, $"🏷️ Loại: {room.LoaiPhong ?? "Phòng thường"}", padding, ref y);
 
-            // Price
+            y += 10;
+
+            // Price section - full width layout
+            var pnlBottom = new Panel
+            {
+                Location = new Point(padding, y),
+                Size = new Size(cardContentWidth, 45),
+                BackColor = Color.Transparent
+            };
+
             var lblPrice = new Label
             {
-                Text = UIHelper.FormatCurrency(room.GiaThue) + "/tháng",
+                Text = UIHelper.FormatCurrency(room.GiaThue),
                 Font = new Font("Segoe UI Semibold", 12),
                 ForeColor = ThemeManager.Success,
-                Location = new Point(padding, y + 5),
+                Location = new Point(0, 5),
                 AutoSize = true
             };
-            card.Controls.Add(lblPrice);
+            pnlBottom.Controls.Add(lblPrice);
 
-            // Button
-            var btnText = room.HasPendingRequest ? "📋 Đã gửi yêu cầu" : "✨ Thuê & Thanh toán online";
+            var lblPerMonth = new Label
+            {
+                Text = "/tháng",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = ThemeManager.TextMuted,
+                Location = new Point(0, 23),
+                AutoSize = true
+            };
+            pnlBottom.Controls.Add(lblPerMonth);
+
+            // Button - responsive width
+            var btnText = room.HasPendingRequest ? "📋 Đã gửi" : "✨ Thuê";
             var btnColor = room.HasPendingRequest ? ThemeManager.Warning : ThemeManager.Primary;
 
+            int btnWidth = Math.Min(140, cardContentWidth - 120);
             var btnBook = new Button
             {
                 Text = btnText,
-                Size = new Size(140, 35),
-                Location = new Point(card.Width - 155, y),
+                Size = new Size(btnWidth, 40),
+                Location = new Point(pnlBottom.Width - btnWidth, 2),
                 BackColor = btnColor,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9),
+                Font = new Font("Segoe UI Semibold", 10F),
                 Cursor = room.HasPendingRequest ? Cursors.Default : Cursors.Hand,
                 Enabled = !room.HasPendingRequest
             };
             btnBook.FlatAppearance.BorderSize = 0;
             UIHelper.RoundControl(btnBook, 8);
             btnBook.Click += (s, e) => ShowBookingPaymentForm(room);
-            card.Controls.Add(btnBook);
+            pnlBottom.Controls.Add(btnBook);
+
+            card.Controls.Add(pnlBottom);
 
             return card;
         }
@@ -473,24 +499,71 @@ namespace QuanLyNhaTro.UI.UserControls
             scrollPanel.Controls.AddRange(new Control[] { lblGhiChu, txtGhiChu });
             y += 65;
 
-            // === THÔNG TIN THANH TOÁN CỌC ===
-            var lblSection3 = CreateSectionLabel("💳 Thông tin thanh toán cọc", y);
+            // === PHƯƠNG THỨC THANH TOÁN ===
+            var lblSection3 = CreateSectionLabel("💳 Phương thức thanh toán cọc", y);
             scrollPanel.Controls.Add(lblSection3);
             y += 35;
 
             AddInfoRow(scrollPanel, "Tiền cọc:", UIHelper.FormatCurrency(depositAmount), ref y, ThemeManager.Error);
-            AddInfoRow(scrollPanel, "Ngân hàng:", paymentConfig.BankName, ref y);
-            AddInfoRow(scrollPanel, "Chủ TK:", paymentConfig.AccountName, ref y);
-            AddInfoRow(scrollPanel, "Số TK:", paymentConfig.AccountNumber, ref y);
 
-            y += 20;
+            // Payment method selection
+            var lblPhuongThuc = new Label { Text = "Phương thức:", Location = new Point(20, y), Width = 130, ForeColor = ThemeManager.TextPrimary };
+            var rdoOnline = new RadioButton
+            {
+                Text = "💳 Chuyển khoản online",
+                Location = new Point(160, y),
+                AutoSize = true,
+                Checked = true,
+                ForeColor = ThemeManager.TextPrimary
+            };
+            var rdoCash = new RadioButton
+            {
+                Text = "💵 Tiền mặt (tại văn phòng)",
+                Location = new Point(160, y + 25),
+                AutoSize = true,
+                ForeColor = ThemeManager.TextPrimary
+            };
+            scrollPanel.Controls.AddRange(new Control[] { lblPhuongThuc, rdoOnline, rdoCash });
+            y += 60;
+
+            // Bank info panel (only show when online payment selected)
+            var pnlBankInfo = new Panel
+            {
+                Location = new Point(20, y),
+                Size = new Size(480, 120),
+                BackColor = Color.Transparent
+            };
+
+            int bankY = 0;
+            var lblBank = new Label { Text = "Ngân hàng:", Location = new Point(0, bankY), Width = 130, ForeColor = ThemeManager.TextSecondary, Font = new Font("Segoe UI", 9) };
+            var lblBankValue = new Label { Text = paymentConfig.BankName, Location = new Point(140, bankY), Width = 300, ForeColor = ThemeManager.TextPrimary, Font = new Font("Segoe UI Semibold", 9) };
+            pnlBankInfo.Controls.AddRange(new Control[] { lblBank, lblBankValue });
+            bankY += 28;
+
+            var lblAcc = new Label { Text = "Chủ TK:", Location = new Point(0, bankY), Width = 130, ForeColor = ThemeManager.TextSecondary, Font = new Font("Segoe UI", 9) };
+            var lblAccValue = new Label { Text = paymentConfig.AccountName, Location = new Point(140, bankY), Width = 300, ForeColor = ThemeManager.TextPrimary, Font = new Font("Segoe UI Semibold", 9) };
+            pnlBankInfo.Controls.AddRange(new Control[] { lblAcc, lblAccValue });
+            bankY += 28;
+
+            var lblNum = new Label { Text = "Số TK:", Location = new Point(0, bankY), Width = 130, ForeColor = ThemeManager.TextSecondary, Font = new Font("Segoe UI", 9) };
+            var lblNumValue = new Label { Text = paymentConfig.AccountNumber, Location = new Point(140, bankY), Width = 300, ForeColor = ThemeManager.TextPrimary, Font = new Font("Segoe UI Semibold", 9) };
+            pnlBankInfo.Controls.AddRange(new Control[] { lblNum, lblNumValue });
+
+            scrollPanel.Controls.Add(pnlBankInfo);
+            y += 120;
+
+            // Show/hide bank info based on payment method
+            rdoOnline.CheckedChanged += (s, e) => pnlBankInfo.Visible = rdoOnline.Checked;
+            rdoCash.CheckedChanged += (s, e) => pnlBankInfo.Visible = rdoOnline.Checked;
+
+            y += 10;
 
             // Buttons
             var btnCreate = new Button
             {
-                Text = "✨ Tạo yêu cầu & Xem QR thanh toán",
+                Text = "✨ Gửi yêu cầu thuê phòng",
                 Location = new Point(160, y),
-                Size = new Size(220, 45),
+                Size = new Size(200, 45),
                 BackColor = ThemeManager.Success,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -503,7 +576,7 @@ namespace QuanLyNhaTro.UI.UserControls
             var btnCancel = new Button
             {
                 Text = "Hủy",
-                Location = new Point(390, y),
+                Location = new Point(370, y),
                 Size = new Size(80, 45),
                 BackColor = ThemeManager.Secondary,
                 ForeColor = Color.White,
@@ -533,21 +606,38 @@ namespace QuanLyNhaTro.UI.UserControls
                     if (result.Success)
                     {
                         popup.Close();
-                        ShowPaymentQRForm(result.MaYeuCau, result.MaThanhToan, room, paymentConfig, depositAmount);
+
+                        // Nếu chọn thanh toán online, hiển thị form QR
+                        if (rdoOnline.Checked)
+                        {
+                            ShowPaymentQRForm(result.MaYeuCau, result.MaThanhToan, room, paymentConfig, depositAmount);
+                        }
+                        else
+                        {
+                            // Thanh toán tiền mặt - chỉ thông báo thành công
+                            UIHelper.ShowSuccess(
+                                "Yêu cầu thuê phòng đã được gửi thành công!\n\n" +
+                                $"Mã yêu cầu: #{result.MaYeuCau}\n" +
+                                $"Tiền cọc: {UIHelper.FormatCurrency(depositAmount)}\n\n" +
+                                "Vui lòng đến văn phòng để thanh toán tiền mặt.\n" +
+                                "Quản lý sẽ xác nhận sau khi nhận được tiền cọc."
+                            );
+                        }
+
                         LoadData();
                     }
                     else
                     {
                         UIHelper.ShowError(result.Message);
                         btnCreate.Enabled = true;
-                        btnCreate.Text = "✨ Tạo yêu cầu & Xem QR thanh toán";
+                        btnCreate.Text = "✨ Gửi yêu cầu thuê phòng";
                     }
                 }
                 catch (Exception ex)
                 {
                     UIHelper.ShowError($"Lỗi: {ex.Message}");
                     btnCreate.Enabled = true;
-                    btnCreate.Text = "✨ Tạo yêu cầu & Xem QR thanh toán";
+                    btnCreate.Text = "✨ Gửi yêu cầu thuê phòng";
                 }
             };
 
