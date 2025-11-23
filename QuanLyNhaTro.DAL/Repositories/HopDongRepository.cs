@@ -158,6 +158,33 @@ namespace QuanLyNhaTro.DAL.Repositories
         }
 
         /// <summary>
+        /// Tính toán chi phí thanh lý sớm (sử dụng SP)
+        /// </summary>
+        public async Task<(decimal TienCoc, decimal CongNoHoaDon, decimal ChiPhiHuHong, decimal PhiPhatThanhLySom, decimal TongKhauTru, decimal TienHoanCoc)> CalculateTerminationFeesAsync(int hopDongId)
+        {
+            using var conn = GetConnection();
+            var parameters = new DynamicParameters();
+            parameters.Add("@HopDongId", hopDongId);
+            parameters.Add("@TienCoc", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+            parameters.Add("@CongNoHoaDon", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+            parameters.Add("@ChiPhiHuHong", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+            parameters.Add("@PhiPhatThanhLySom", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+            parameters.Add("@TongKhauTru", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+            parameters.Add("@TienHoanCoc", dbType: System.Data.DbType.Decimal, direction: System.Data.ParameterDirection.Output, precision: 18, scale: 0);
+
+            await conn.ExecuteAsync("sp_CalculateTerminationFees", parameters, commandType: System.Data.CommandType.StoredProcedure);
+
+            return (
+                TienCoc: parameters.Get<decimal>("@TienCoc"),
+                CongNoHoaDon: parameters.Get<decimal>("@CongNoHoaDon"),
+                ChiPhiHuHong: parameters.Get<decimal>("@ChiPhiHuHong"),
+                PhiPhatThanhLySom: parameters.Get<decimal>("@PhiPhatThanhLySom"),
+                TongKhauTru: parameters.Get<decimal>("@TongKhauTru"),
+                TienHoanCoc: parameters.Get<decimal>("@TienHoanCoc")
+            );
+        }
+
+        /// <summary>
         /// Gia hạn hợp đồng
         /// </summary>
         public async Task<bool> ExtendContractAsync(int hopDongId, DateTime ngayKetThucMoi, decimal? giaThueMoi = null)

@@ -88,6 +88,10 @@ namespace QuanLyNhaTro.BLL.Services
         public async Task<(int Success, int Failed, string Message)> CreateBatchAsync(DateTime thangNam)
         {
             var hopDongs = await _hopDongRepo.GetAllWithDetailsAsync("Active");
+            
+            // ✅ FIX #2: Chỉ tạo hóa đơn cho hợp đồng chưa hết hạn
+            hopDongs = hopDongs.Where(hd => hd.NgayKetThuc >= thangNam).ToList();
+            
             var dichVuCoDinh = (await _dichVuRepo.GetFixedServicesAsync()).ToList();
 
             int success = 0, failed = 0;

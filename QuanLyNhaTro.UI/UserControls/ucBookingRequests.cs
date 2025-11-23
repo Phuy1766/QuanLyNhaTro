@@ -973,7 +973,8 @@ private void DgvRequests_CellFormatting(object? sender, DataGridViewCellFormatti
                 Maximum = 100000000,
                 Value = request.SoTienCoc ?? request.GiaPhong ?? 0,
                 ThousandsSeparator = true,
-                Enabled = false
+                Enabled = false,  // ✅ FIX #4: Không cho sửa tiền cọc
+                ReadOnly = true   // ✅ Đảm bảo không sửa được
             };
             popup.Controls.AddRange(new Control[] { lblCoc, nudCoc });
             y += 35;

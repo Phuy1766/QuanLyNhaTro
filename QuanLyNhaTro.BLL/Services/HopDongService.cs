@@ -12,6 +12,7 @@ namespace QuanLyNhaTro.BLL.Services
         private readonly HoaDonRepository _hoaDonRepo = new();
         private readonly NotificationRepository _notiRepo = new();
         private readonly ActivityLogRepository _logRepo = new();
+        private readonly DamageReportService _damageService = new(); // FIX Issue 4.1
 
         public async Task<IEnumerable<HopDong>> GetAllAsync(string? trangThai = null)
         {
@@ -111,21 +112,18 @@ namespace QuanLyNhaTro.BLL.Services
             if (hopDong.TrangThai != "Active")
                 return (false, "Hợp đồng không ở trạng thái hoạt động!", null);
 
-            // Tính toán
+            // ✅ FIX Issue #6: Sử dụng SP mới để tính phí thanh lý sớm
+            var fees = await _repo.CalculateTerminationFeesAsync(hopDongId);
+
             var result = new TerminationResult
             {
-                TienCoc = hopDong.TienCoc
+                TienCoc = fees.TienCoc,
+                CongNoHoaDon = fees.CongNoHoaDon,
+                ChiPhiHuHong = fees.ChiPhiHuHong,
+                PhiPhatThanhLySom = fees.PhiPhatThanhLySom,
+                TongKhauTru = fees.TongKhauTru,
+                TienHoanCoc = fees.TienHoanCoc
             };
-
-            // Tính công nợ hóa đơn
-            result.CongNoHoaDon = await _hoaDonRepo.GetTotalDebtByKhachAsync(hopDong.KhachId);
-
-            // Tính chi phí hư hỏng tài sản
-            result.ChiPhiHuHong = await _taiSanRepo.GetDamagedValueAsync(hopDong.PhongId);
-
-            // Tính tiền hoàn cọc
-            result.TongKhauTru = result.CongNoHoaDon + result.ChiPhiHuHong;
-            result.TienHoanCoc = Math.Max(0, result.TienCoc - result.TongKhauTru);
 
             return (true, "Đã tính toán thanh lý hợp đồng", result);
         }
@@ -165,6 +163,7 @@ namespace QuanLyNhaTro.BLL.Services
         public decimal TienCoc { get; set; }
         public decimal CongNoHoaDon { get; set; }
         public decimal ChiPhiHuHong { get; set; }
+        public decimal PhiPhatThanhLySom { get; set; }
         public decimal TongKhauTru { get; set; }
         public decimal TienHoanCoc { get; set; }
     }

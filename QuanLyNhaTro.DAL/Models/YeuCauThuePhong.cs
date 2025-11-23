@@ -13,10 +13,12 @@ namespace QuanLyNhaTro.DAL.Models
         public DateTime NgayBatDauMongMuon { get; set; }
         public int SoNguoi { get; set; }
         public string? GhiChu { get; set; }
+        public DateTime? NgayHetHan { get; set; }  // FIX 5.1: Hạn thanh toán
         public string TrangThai { get; set; } = "Pending"; // Pending, Approved, Rejected
         public DateTime? NgayXuLy { get; set; }
         public int? NguoiXuLy { get; set; }
         public string? LyDoTuChoi { get; set; }
+        public string? MoTaHuyBoSung { get; set; }  // FIX 5.1: Lý do hủy tự động
 
         // Navigation/Display properties
         public string? TenTenant { get; set; }

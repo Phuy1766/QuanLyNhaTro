@@ -484,10 +484,14 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private Panel CreateInfoBlock(string title, InfoItem[] items, int x, int y)
         {
+            // Tính width dựa trên parent container
+            int blockWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right;
+            if (blockWidth < 300) blockWidth = 500; // Minimum width
+            
             Panel block = new Panel
             {
                 Location = new Point(x, y),
-                Width = pnlDetailContent.Width - 60,
+                Width = blockWidth,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = ColorTranslator.FromHtml("#F9FAFB"),
                 Padding = new Padding(20)
@@ -504,7 +508,7 @@ namespace QuanLyNhaTro.UI.UserControls
                 Location = new Point(0, blockY)
             };
             block.Controls.Add(lblTitle);
-            blockY += 30;
+            blockY += 35;
 
             foreach (var item in items)
             {
@@ -514,7 +518,8 @@ namespace QuanLyNhaTro.UI.UserControls
                     Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                     ForeColor = ColorTranslator.FromHtml("#6B7280"),
                     AutoSize = false,
-                    Width = 200,
+                    Width = 180,
+                    Height = 22,
                     Location = new Point(0, blockY),
                     TextAlign = ContentAlignment.MiddleLeft
                 };
@@ -525,18 +530,19 @@ namespace QuanLyNhaTro.UI.UserControls
                     Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                     ForeColor = ColorTranslator.FromHtml("#1F2937"),
                     AutoSize = false,
-                    Width = block.Width - 240,
-                    Location = new Point(210, blockY),
+                    Width = blockWidth - 240, // 240 = 180 (label) + 20 (padding left) + 20 (padding right) + 20 (gap)
+                    Height = 22,
+                    Location = new Point(200, blockY),
                     TextAlign = ContentAlignment.MiddleLeft,
                     Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
 
                 block.Controls.Add(lblLabel);
                 block.Controls.Add(lblValue);
-                blockY += 28;
+                blockY += 30;
             }
 
-            block.Height = blockY + 10;
+            block.Height = blockY + 20;
             RoundCorners(block, 8);
 
             return block;
