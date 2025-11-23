@@ -90,13 +90,13 @@ namespace QuanLyNhaTro.UI.UserControls
                 Height = panel.Height - 35,
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None,
+                BorderStyle = BorderStyle.FixedSingle,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 ReadOnly = true,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 RowHeadersVisible = false,
                 EnableHeadersVisualStyles = false,
                 ColumnHeadersHeight = 40,
@@ -132,17 +132,19 @@ namespace QuanLyNhaTro.UI.UserControls
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "MaYeuCau",
-                HeaderText = "Mã YC",
+                HeaderText = "Mã",
                 DataPropertyName = "MaYeuCau",
-                FillWeight = 20
+                Width = 50,
+                MinimumWidth = 50
             });
 
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "NgayGui",
-                HeaderText = "Ngày tạo",
+                HeaderText = "Ngày gửi",
                 DataPropertyName = "NgayGui",
-                FillWeight = 25,
+                Width = 90,
+                MinimumWidth = 90,
                 DefaultCellStyle = { Format = "dd/MM/yyyy" }
             });
 
@@ -151,7 +153,8 @@ namespace QuanLyNhaTro.UI.UserControls
                 Name = "MaPhong",
                 HeaderText = "Phòng",
                 DataPropertyName = "MaPhong",
-                FillWeight = 20
+                Width = 70,
+                MinimumWidth = 60
             });
 
             dgvRequests.Columns.Add(new DataGridViewTextBoxColumn
@@ -159,7 +162,8 @@ namespace QuanLyNhaTro.UI.UserControls
                 Name = "GiaPhong",
                 HeaderText = "Giá thuê",
                 DataPropertyName = "GiaPhong",
-                FillWeight = 20,
+                Width = 100,
+                MinimumWidth = 90,
                 DefaultCellStyle = { Format = "N0", Alignment = DataGridViewContentAlignment.MiddleRight }
             });
 
@@ -168,7 +172,7 @@ namespace QuanLyNhaTro.UI.UserControls
                 Name = "TrangThai",
                 HeaderText = "Trạng thái",
                 DataPropertyName = "TrangThai",
-                FillWeight = 25
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
             });
         }
 
@@ -224,10 +228,12 @@ namespace QuanLyNhaTro.UI.UserControls
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(0)
+                Padding = new Padding(0),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
-            RoundCorners(innerPanel, 12);
+            // Don't use RoundCorners on panels with child controls as it can clip content
+            // RoundCorners(innerPanel, 12);
 
             lblNoSelection = new Label
             {
@@ -244,6 +250,15 @@ namespace QuanLyNhaTro.UI.UserControls
                 AutoScroll = true,
                 Visible = false,
                 Padding = new Padding(30, 25, 30, 25)
+            };
+            
+            // Handle resize để update layout
+            pnlDetailContent.Resize += (s, e) => 
+            {
+                if (_selectedRequest != null && pnlDetailContent.Controls.Count > 0)
+                {
+                    UpdateDetailContentLayout();
+                }
             };
 
             pnlActions = CreateActionsPanel();
@@ -322,22 +337,10 @@ namespace QuanLyNhaTro.UI.UserControls
             };
 
             btn.FlatAppearance.BorderSize = 0;
-            RoundCorners(btn, 6);
 
             return btn;
         }
 
-        private void RoundCorners(Control control, int radius)
-        {
-            System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath();
-            path.StartFigure();
-            path.AddArc(new Rectangle(0, 0, radius, radius), 180, 90);
-            path.AddArc(new Rectangle(control.Width - radius, 0, radius, radius), 270, 90);
-            path.AddArc(new Rectangle(control.Width - radius, control.Height - radius, radius, radius), 0, 90);
-            path.AddArc(new Rectangle(0, control.Height - radius, radius, radius), 90, 90);
-            path.CloseFigure();
-            control.Region = new Region(path);
-        }
 
         private void DgvRequests_SelectionChanged(object sender, EventArgs e)
         {
@@ -473,6 +476,9 @@ namespace QuanLyNhaTro.UI.UserControls
 
                 lblNoSelection.Visible = false;
                 pnlDetailContent.Visible = true;
+                pnlDetailContent.PerformLayout();
+                pnlDetailContent.Invalidate();
+                pnlDetailContent.Update();
 
                 UpdateButtonStates(paymentInfo);
             }
@@ -484,17 +490,21 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private Panel CreateInfoBlock(string title, InfoItem[] items, int x, int y)
         {
-            // Tính width dựa trên parent container
-            int blockWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right;
-            if (blockWidth < 300) blockWidth = 500; // Minimum width
-            
+            // Tính width dựa trên parent container với default an toàn
+            int blockWidth = 500; // Default width
+            if (pnlDetailContent.ClientSize.Width > 100)
+            {
+                blockWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right - 20;
+            }
+
             Panel block = new Panel
             {
                 Location = new Point(x, y),
                 Width = blockWidth,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = ColorTranslator.FromHtml("#F9FAFB"),
-                Padding = new Padding(20)
+                Padding = new Padding(20),
+                AutoSize = false
             };
 
             int blockY = 0;
@@ -543,9 +553,33 @@ namespace QuanLyNhaTro.UI.UserControls
             }
 
             block.Height = blockY + 20;
-            RoundCorners(block, 8);
 
             return block;
+        }
+
+        private void UpdateDetailContentLayout()
+        {
+            if (pnlDetailContent.Controls.Count == 0) return;
+            
+            int availableWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right - 20;
+            if (availableWidth < 300) return;
+            
+            foreach (Control ctrl in pnlDetailContent.Controls)
+            {
+                if (ctrl is Panel panel && panel.BackColor == ColorTranslator.FromHtml("#F9FAFB"))
+                {
+                    panel.Width = availableWidth;
+                    
+                    // Update width của value labels bên trong
+                    foreach (Control innerCtrl in panel.Controls)
+                    {
+                        if (innerCtrl is Label lbl && lbl.Location.X > 150) // Value labels
+                        {
+                            lbl.Width = availableWidth - 260;
+                        }
+                    }
+                }
+            }
         }
 
         private void UpdateButtonStates(BookingRequestDTO paymentInfo)

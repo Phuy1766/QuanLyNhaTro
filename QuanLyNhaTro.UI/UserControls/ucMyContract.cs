@@ -1,6 +1,8 @@
 using QuanLyNhaTro.DAL.Repositories;
+using QuanLyNhaTro.DAL.Models;
 using QuanLyNhaTro.UI.Helpers;
 using QuanLyNhaTro.UI.Themes;
+using System.Drawing;
 
 namespace QuanLyNhaTro.UI.UserControls
 {
@@ -9,172 +11,486 @@ namespace QuanLyNhaTro.UI.UserControls
         private readonly HopDongRepository _hopDongRepo = new();
         private readonly int _tenantUserId;
 
-        private Panel pnlContract = null!;
-        private DataGridView dgvHistory = null!;
+        private DataGridView dgvContracts = null!;
+        private Panel pnlDetail = null!;
+        private Panel pnlDetailContent = null!;
+        private Label lblNoSelection = null!;
+        private HopDong? _selectedContract;
 
         public ucMyContract(int tenantUserId)
         {
             _tenantUserId = tenantUserId;
             InitializeComponent();
             CreateLayout();
-            LoadDataAsync();
+            LoadContractsAsync();
         }
 
         private void CreateLayout()
         {
-            this.BackColor = ThemeManager.Background;
-            this.AutoScroll = true;
+            this.BackColor = ColorTranslator.FromHtml("#F3F4F6");
+            this.Padding = new Padding(20);
 
-            // Header
+            // Main layout: 40% list | 60% detail
+            var mainLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                ColumnStyles = {
+                    new ColumnStyle(SizeType.Percent, 40F),
+                    new ColumnStyle(SizeType.Percent, 60F)
+                }
+            };
+
+            // Left panel: Danh sách hợp đồng
+            var pnlList = CreateListPanel();
+            mainLayout.Controls.Add(pnlList, 0, 0);
+
+            // Right panel: Chi tiết
+            pnlDetail = CreateDetailPanel();
+            mainLayout.Controls.Add(pnlDetail, 1, 0);
+
+            this.Controls.Add(mainLayout);
+        }
+
+        private Panel CreateListPanel()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 10, 0)
+            };
+
+            // Title
             var lblTitle = new Label
             {
-                Text = "Hợp đồng của tôi",
-                Font = new Font("Segoe UI", 20, FontStyle.Bold),
-                ForeColor = ThemeManager.TextPrimary,
-                Location = new Point(20, 15),
-                AutoSize = true
-            };
-            this.Controls.Add(lblTitle);
-
-            // Contract Info Panel
-            pnlContract = new Panel
-            {
-                Location = new Point(20, 60),
-                Size = new Size(500, 380),
-                BackColor = ThemeManager.Surface,
-                Padding = new Padding(20)
-            };
-
-            var lblContractTitle = new Label
-            {
-                Text = "Thông tin hợp đồng hiện tại",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
-                ForeColor = ThemeManager.Primary,
-                Location = new Point(20, 15),
-                AutoSize = true
-            };
-            pnlContract.Controls.Add(lblContractTitle);
-            this.Controls.Add(pnlContract);
-
-            // Contract History Panel
-            var lblHistory = new Label
-            {
                 Text = "Lịch sử hợp đồng",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
-                ForeColor = ThemeManager.TextPrimary,
-                Location = new Point(540, 60),
-                AutoSize = true
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                AutoSize = true,
+                Location = new Point(0, 0)
             };
-            this.Controls.Add(lblHistory);
+            panel.Controls.Add(lblTitle);
 
-            var pnlHistory = new Panel
+            // DataGridView
+            dgvContracts = new DataGridView
             {
-                Location = new Point(540, 95),
-                Size = new Size(500, 345),
-                BackColor = ThemeManager.Surface
+                Location = new Point(0, 35),
+                Width = panel.Width,
+                Height = panel.Height - 35,
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+                RowHeadersVisible = false,
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersHeight = 40,
+                RowTemplate = { Height = 60 }
             };
 
-            dgvHistory = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = ThemeManager.Surface, BorderStyle = BorderStyle.None };
-            UIHelper.StyleDataGridView(dgvHistory);
-            UIHelper.AddColumn(dgvHistory, "MaHopDong", "Mã HĐ", "MaHopDong", 80);
-            UIHelper.AddColumn(dgvHistory, "NgayBatDau", "Ngày BĐ", "NgayBatDau", 90);
-            UIHelper.AddColumn(dgvHistory, "NgayKetThuc", "Ngày KT", "NgayKetThuc", 90);
-            UIHelper.AddColumn(dgvHistory, "GiaThue", "Giá thuê", "GiaThue", 100);
-            UIHelper.AddColumn(dgvHistory, "TrangThai", "Trạng thái", "TrangThai", 90);
-            pnlHistory.Controls.Add(dgvHistory);
-            this.Controls.Add(pnlHistory);
+            // Style
+            dgvContracts.ColumnHeadersDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#F9FAFB");
+            dgvContracts.ColumnHeadersDefaultCellStyle.ForeColor = ColorTranslator.FromHtml("#374151");
+            dgvContracts.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dgvContracts.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dgvContracts.ColumnHeadersDefaultCellStyle.Padding = new Padding(10, 0, 0, 0);
+
+            dgvContracts.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#DBEAFE");
+            dgvContracts.DefaultCellStyle.SelectionForeColor = ColorTranslator.FromHtml("#1E40AF");
+            dgvContracts.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
+            dgvContracts.DefaultCellStyle.Padding = new Padding(10, 5, 10, 5);
+            dgvContracts.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+
+            dgvContracts.SelectionChanged += DgvContracts_SelectionChanged;
+            dgvContracts.CellFormatting += DgvContracts_CellFormatting;
+
+            SetupListColumns();
+
+            panel.Controls.Add(dgvContracts);
+
+            return panel;
         }
 
-        private void AddInfoRow(string label, string value, int y, Color? valueColor = null)
+        private void SetupListColumns()
         {
-            var lblLabel = new Label
-            {
-                Text = label,
-                Font = new Font("Segoe UI", 10),
-                ForeColor = ThemeManager.TextSecondary,
-                Location = new Point(20, y),
-                Size = new Size(160, 25)
-            };
+            dgvContracts.Columns.Clear();
 
-            var lblValue = new Label
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Text = value,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = valueColor ?? ThemeManager.TextPrimary,
-                Location = new Point(190, y),
-                AutoSize = true
-            };
+                Name = "MaHopDong",
+                HeaderText = "Mã HĐ",
+                DataPropertyName = "MaHopDong",
+                Width = 90,
+                MinimumWidth = 80
+            });
 
-            pnlContract.Controls.Add(lblLabel);
-            pnlContract.Controls.Add(lblValue);
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "MaPhong",
+                HeaderText = "Phòng",
+                DataPropertyName = "MaPhong",
+                Width = 70,
+                MinimumWidth = 60
+            });
+
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "NgayBatDau",
+                HeaderText = "Bắt đầu",
+                DataPropertyName = "NgayBatDau",
+                Width = 90,
+                MinimumWidth = 80,
+                DefaultCellStyle = { Format = "dd/MM/yyyy" }
+            });
+
+            dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "TrangThai",
+                HeaderText = "Trạng thái",
+                DataPropertyName = "TrangThai",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            });
         }
 
-        private async void LoadDataAsync()
+        private void DgvContracts_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (dgvContracts.Columns[e.ColumnIndex].Name == "TrangThai" && e.Value != null)
+            {
+                string status = e.Value.ToString() ?? "";
+                e.Value = GetStatusDisplayText(status);
+                e.CellStyle.ForeColor = GetStatusColor(status);
+                e.CellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            }
+        }
+
+        private string GetStatusDisplayText(string status)
+        {
+            return status switch
+            {
+                "Active" => "Đang hiệu lực",
+                "Terminated" => "Đã thanh lý",
+                "Expired" => "Đã hết hạn",
+                _ => status
+            };
+        }
+
+        private Color GetStatusColor(string status)
+        {
+            return status switch
+            {
+                "Active" => ColorTranslator.FromHtml("#10B981"),
+                "Terminated" => ColorTranslator.FromHtml("#6B7280"),
+                "Expired" => ColorTranslator.FromHtml("#EF4444"),
+                _ => ColorTranslator.FromHtml("#6B7280")
+            };
+        }
+
+        private Panel CreateDetailPanel()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 0, 0, 0)
+            };
+
+            var innerPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            // No selection label
+            lblNoSelection = new Label
+            {
+                Text = "Chọn một hợp đồng để xem chi tiết",
+                Font = new Font("Segoe UI", 11F, FontStyle.Regular),
+                ForeColor = ColorTranslator.FromHtml("#9CA3AF"),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill
+            };
+
+            // Detail content panel
+            pnlDetailContent = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Visible = false,
+                Padding = new Padding(30, 25, 30, 25)
+            };
+
+            innerPanel.Controls.Add(lblNoSelection);
+            innerPanel.Controls.Add(pnlDetailContent);
+
+            panel.Controls.Add(innerPanel);
+
+            return panel;
+        }
+
+        private void DgvContracts_SelectionChanged(object? sender, EventArgs e)
+        {
+            if (dgvContracts.SelectedRows.Count > 0)
+            {
+                var row = dgvContracts.SelectedRows[0];
+                int hopDongId = Convert.ToInt32(row.Cells["HopDongId"].Value);
+                LoadDetailPanel(hopDongId);
+            }
+            else
+            {
+                ShowNoSelection();
+            }
+        }
+
+        private void ShowNoSelection()
+        {
+            lblNoSelection.Visible = true;
+            pnlDetailContent.Visible = false;
+            _selectedContract = null;
+        }
+
+        private async void LoadContractsAsync()
         {
             try
             {
-                // Lấy hợp đồng active
-                var contract = await _hopDongRepo.GetActiveByUserIdAsync(_tenantUserId);
+                var contracts = (await _hopDongRepo.GetByTenantUserIdAsync(_tenantUserId))
+                    .OrderByDescending(c => c.NgayBatDau)
+                    .ToList();
 
-                if (contract == null)
+                // Add HopDongId as hidden column
+                if (!dgvContracts.Columns.Contains("HopDongId"))
                 {
-                    AddInfoRow("Trạng thái:", "Bạn chưa có hợp đồng thuê phòng", 60);
-                    return;
+                    dgvContracts.Columns.Add(new DataGridViewTextBoxColumn
+                    {
+                        Name = "HopDongId",
+                        DataPropertyName = "HopDongId",
+                        Visible = false
+                    });
                 }
 
-                // Hiển thị thông tin hợp đồng
-                int y = 55;
-                AddInfoRow("Mã hợp đồng:", $"#{contract.MaHopDong}", y); y += 35;
-                AddInfoRow("Phòng:", contract.MaPhong, y); y += 35;
-                AddInfoRow("Tiền cọc:", $"{contract.TienCoc:N0} VNĐ", y); y += 35;
-                AddInfoRow("Giá thuê:", $"{contract.GiaThue:N0} VNĐ/tháng", y); y += 35;
-                AddInfoRow("Ngày bắt đầu:", contract.NgayBatDau.ToString("dd/MM/yyyy"), y); y += 35;
-                AddInfoRow("Ngày kết thúc:", contract.NgayKetThuc.ToString("dd/MM/yyyy"), y); y += 35;
+                dgvContracts.DataSource = contracts;
 
-                // Tính số ngày còn lại
-                var daysRemaining = (contract.NgayKetThuc - DateTime.Now).Days;
-                Color statusColor;
-                string statusText;
-
-                if (contract.TrangThai != "Active")
+                if (dgvContracts.Rows.Count == 0)
                 {
-                    statusText = "Đã kết thúc";
-                    statusColor = Color.Gray;
-                }
-                else if (daysRemaining < 0)
-                {
-                    statusText = "Đã hết hạn";
-                    statusColor = Color.FromArgb(239, 68, 68);
-                }
-                else if (daysRemaining <= 30)
-                {
-                    statusText = $"Sắp hết hạn ({daysRemaining} ngày)";
-                    statusColor = Color.FromArgb(245, 158, 11);
-                }
-                else
-                {
-                    statusText = $"Còn hiệu lực ({daysRemaining} ngày)";
-                    statusColor = Color.FromArgb(16, 185, 129);
-                }
-
-                AddInfoRow("Trạng thái:", statusText, y, statusColor); y += 35;
-                AddInfoRow("Chu kỳ thanh toán:", $"{contract.ChuKyThanhToan} tháng", y);
-
-                // Lấy lịch sử hợp đồng
-                var allContracts = await _hopDongRepo.GetByTenantUserIdAsync(_tenantUserId);
-                dgvHistory.DataSource = allContracts.ToList();
-
-                // Format columns
-                foreach (DataGridViewColumn col in dgvHistory.Columns)
-                {
-                    if (col.Name == "GiaThue") col.DefaultCellStyle.Format = "N0";
-                    if (col.Name == "NgayBatDau" || col.Name == "NgayKetThuc")
-                        col.DefaultCellStyle.Format = "dd/MM/yyyy";
+                    ShowNoSelection();
+                    lblNoSelection.Text = "Bạn chưa có hợp đồng nào";
                 }
             }
             catch (Exception ex)
             {
-                UIHelper.ShowError($"Lỗi: {ex.Message}");
+                UIHelper.ShowError($"Lỗi tải danh sách hợp đồng: {ex.Message}");
+            }
+        }
+
+        private void LoadDetailPanel(int hopDongId)
+        {
+            try
+            {
+                _selectedContract = dgvContracts.DataSource is List<HopDong> list
+                    ? list.FirstOrDefault(c => c.HopDongId == hopDongId)
+                    : null;
+
+                if (_selectedContract == null)
+                {
+                    ShowNoSelection();
+                    return;
+                }
+
+                pnlDetailContent.Controls.Clear();
+
+                int yPos = 0;
+
+                // Header
+                var lblHeader = new Label
+                {
+                    Text = $"Chi tiết hợp đồng {_selectedContract.MaHopDong}",
+                    Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                    AutoSize = true,
+                    Location = new Point(0, yPos)
+                };
+                pnlDetailContent.Controls.Add(lblHeader);
+                yPos += 45;
+
+                // Thông tin cơ bản
+                var block1 = CreateInfoBlock("Thông tin hợp đồng", new[]
+                {
+                    new InfoItem("Mã hợp đồng", _selectedContract.MaHopDong ?? "N/A"),
+                    new InfoItem("Phòng", _selectedContract.MaPhong ?? "N/A"),
+                    new InfoItem("Tòa nhà", _selectedContract.BuildingName ?? "N/A"),
+                    new InfoItem("Ngày bắt đầu", _selectedContract.NgayBatDau.ToString("dd/MM/yyyy")),
+                    new InfoItem("Ngày kết thúc", _selectedContract.NgayKetThuc.ToString("dd/MM/yyyy")),
+                    new InfoItem("Trạng thái", GetStatusDisplayText(_selectedContract.TrangThai ?? ""))
+                }, 0, yPos);
+                pnlDetailContent.Controls.Add(block1);
+                yPos += block1.Height + 20;
+
+                // Thông tin tài chính
+                var block2 = CreateInfoBlock("Thông tin tài chính", new[]
+                {
+                    new InfoItem("Giá thuê", $"{_selectedContract.GiaThue:N0} VNĐ/tháng"),
+                    new InfoItem("Tiền cọc", $"{_selectedContract.TienCoc:N0} VNĐ"),
+                    new InfoItem("Chu kỳ thanh toán", $"{_selectedContract.ChuKyThanhToan} tháng"),
+                    new InfoItem("Tiền hoàn cọc", _selectedContract.TienHoanCoc.HasValue ? $"{_selectedContract.TienHoanCoc.Value:N0} VNĐ" : "Chưa có"),
+                    new InfoItem("Tiền khấu trừ", _selectedContract.TienKhauTru.HasValue ? $"{_selectedContract.TienKhauTru.Value:N0} VNĐ" : "Không có")
+                }, 0, yPos);
+                pnlDetailContent.Controls.Add(block2);
+                yPos += block2.Height + 20;
+
+                // Thời gian còn lại (nếu Active)
+                if (_selectedContract.TrangThai == "Active")
+                {
+                    var daysRemaining = (_selectedContract.NgayKetThuc - DateTime.Now).Days;
+                    string statusText;
+                    Color statusColor;
+
+                    if (daysRemaining < 0)
+                    {
+                        statusText = "Đã hết hạn";
+                        statusColor = ColorTranslator.FromHtml("#EF4444");
+                    }
+                    else if (daysRemaining <= 30)
+                    {
+                        statusText = $"Sắp hết hạn - còn {daysRemaining} ngày";
+                        statusColor = ColorTranslator.FromHtml("#F59E0B");
+                    }
+                    else
+                    {
+                        statusText = $"Còn hiệu lực - còn {daysRemaining} ngày";
+                        statusColor = ColorTranslator.FromHtml("#10B981");
+                    }
+
+                    var lblStatus = new Label
+                    {
+                        Text = statusText,
+                        Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                        ForeColor = statusColor,
+                        AutoSize = true,
+                        Location = new Point(0, yPos),
+                        Padding = new Padding(10, 8, 10, 8),
+                        BackColor = Color.FromArgb(20, statusColor)
+                    };
+                    pnlDetailContent.Controls.Add(lblStatus);
+                    yPos += 40;
+                }
+
+                // Ghi chú và lý do khấu trừ
+                if (!string.IsNullOrEmpty(_selectedContract.GhiChu) || !string.IsNullOrEmpty(_selectedContract.LyDoKhauTru))
+                {
+                    var items = new List<InfoItem>();
+                    if (!string.IsNullOrEmpty(_selectedContract.GhiChu))
+                        items.Add(new InfoItem("Ghi chú", _selectedContract.GhiChu));
+                    if (!string.IsNullOrEmpty(_selectedContract.LyDoKhauTru))
+                        items.Add(new InfoItem("Lý do khấu trừ", _selectedContract.LyDoKhauTru));
+
+                    var block3 = CreateInfoBlock("Thông tin bổ sung", items.ToArray(), 0, yPos);
+                    pnlDetailContent.Controls.Add(block3);
+                    yPos += block3.Height + 20;
+                }
+
+                // Ngày thanh lý (nếu có)
+                if (_selectedContract.NgayThanhLy.HasValue)
+                {
+                    var block4 = CreateInfoBlock("Thông tin thanh lý", new[]
+                    {
+                        new InfoItem("Ngày thanh lý", _selectedContract.NgayThanhLy.Value.ToString("dd/MM/yyyy HH:mm")),
+                        new InfoItem("Tiền hoàn cọc", _selectedContract.TienHoanCoc.HasValue ? $"{_selectedContract.TienHoanCoc.Value:N0} VNĐ" : "0 VNĐ"),
+                        new InfoItem("Tiền khấu trừ", _selectedContract.TienKhauTru.HasValue ? $"{_selectedContract.TienKhauTru.Value:N0} VNĐ" : "0 VNĐ")
+                    }, 0, yPos);
+                    pnlDetailContent.Controls.Add(block4);
+                }
+
+                lblNoSelection.Visible = false;
+                pnlDetailContent.Visible = true;
+            }
+            catch (Exception ex)
+            {
+                UIHelper.ShowError($"Lỗi tải chi tiết: {ex.Message}");
+            }
+        }
+
+        private Panel CreateInfoBlock(string title, InfoItem[] items, int x, int y)
+        {
+            int blockWidth = 500;
+            if (pnlDetailContent.ClientSize.Width > 100)
+            {
+                blockWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right - 20;
+            }
+
+            var block = new Panel
+            {
+                Location = new Point(x, y),
+                Width = blockWidth,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = ColorTranslator.FromHtml("#F9FAFB"),
+                Padding = new Padding(20),
+                AutoSize = false
+            };
+
+            int blockY = 0;
+
+            var lblTitle = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                AutoSize = true,
+                Location = new Point(0, blockY)
+            };
+            block.Controls.Add(lblTitle);
+            blockY += 35;
+
+            foreach (var item in items)
+            {
+                var lblLabel = new Label
+                {
+                    Text = item.Label + ":",
+                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                    ForeColor = ColorTranslator.FromHtml("#6B7280"),
+                    AutoSize = false,
+                    Width = 180,
+                    Height = 22,
+                    Location = new Point(0, blockY),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+
+                var lblValue = new Label
+                {
+                    Text = item.Value,
+                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
+                    AutoSize = false,
+                    Width = blockWidth - 240,
+                    Height = 22,
+                    Location = new Point(200, blockY),
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+
+                block.Controls.Add(lblLabel);
+                block.Controls.Add(lblValue);
+                blockY += 30;
+            }
+
+            block.Height = blockY + 20;
+
+            return block;
+        }
+
+        private struct InfoItem
+        {
+            public string Label;
+            public string Value;
+
+            public InfoItem(string label, string value)
+            {
+                Label = label;
+                Value = value;
             }
         }
 
