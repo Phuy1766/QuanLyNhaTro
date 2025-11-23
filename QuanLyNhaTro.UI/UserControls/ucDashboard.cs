@@ -1,12 +1,14 @@
 using QuanLyNhaTro.DAL.Repositories;
 using QuanLyNhaTro.UI.Helpers;
 using QuanLyNhaTro.UI.Themes;
+using QuanLyNhaTro.BLL.Services;
 
 namespace QuanLyNhaTro.UI.UserControls
 {
     public partial class ucDashboard : UserControl
     {
         private readonly DashboardRepository _repo = new();
+        private readonly BackgroundTaskService _backgroundService = new();
 
         // Stat Cards
         private Panel pnlCards = null!;
@@ -314,14 +316,17 @@ namespace QuanLyNhaTro.UI.UserControls
                 int barHeight = (int)((_revenueData[i] / maxVal) * (chartHeight - 20));
                 int barY = rect.Height - padding - barHeight;
 
-                // Draw bar with gradient
-                using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                    new Rectangle(x, barY, barWidth, barHeight),
-                    ThemeManager.Primary,
-                    ThemeManager.PrimaryLight,
-                    System.Drawing.Drawing2D.LinearGradientMode.Vertical);
+                // Draw bar with gradient (only if barHeight > 0)
+                if (barHeight > 0 && barWidth > 0)
+                {
+                    using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                        new Rectangle(x, barY, barWidth, barHeight),
+                        ThemeManager.Primary,
+                        ThemeManager.PrimaryLight,
+                        System.Drawing.Drawing2D.LinearGradientMode.Vertical);
 
-                g.FillRoundedRectangle(brush, x, barY, barWidth, barHeight, 8);
+                    g.FillRoundedRectangle(brush, x, barY, barWidth, barHeight, 8);
+                }
 
                 // Draw month label
                 using var font = new Font("Segoe UI", 8);
@@ -329,10 +334,13 @@ namespace QuanLyNhaTro.UI.UserControls
                 var labelSize = g.MeasureString(_monthLabels[i], font);
                 g.DrawString(_monthLabels[i], font, textBrush, x + (barWidth - labelSize.Width) / 2, rect.Height - padding + 5);
 
-                // Draw value
-                var valText = (_revenueData[i] / 1000000).ToString("N1") + "M";
-                var valSize = g.MeasureString(valText, font);
-                g.DrawString(valText, font, textBrush, x + (barWidth - valSize.Width) / 2, barY - 18);
+                // Draw value (only if > 0)
+                if (_revenueData[i] > 0)
+                {
+                    var valText = (_revenueData[i] / 1000000).ToString("N1") + "M";
+                    var valSize = g.MeasureString(valText, font);
+                    g.DrawString(valText, font, textBrush, x + (barWidth - valSize.Width) / 2, barY - 18);
+                }
 
                 x += chartWidth / 6;
             }
@@ -388,6 +396,9 @@ namespace QuanLyNhaTro.UI.UserControls
         {
             try
             {
+                // Chạy background tasks trước để cập nhật dữ liệu
+                await _backgroundService.AutoExpireContractsAsync();
+
                 var stats = await _repo.GetStatsAsync();
 
                 // Update cards
@@ -399,19 +410,24 @@ namespace QuanLyNhaTro.UI.UserControls
                 lblExpiring.Text = stats.HopDongSapHetHan.ToString();
 
                 // Room chart data
-                _roomsOccupied = stats.TongPhong - stats.PhongTrong;
+                _roomsOccupied = stats.PhongDangThue;
                 _roomsAvailable = stats.PhongTrong;
-                _roomsMaintenance = 0;
+                _roomsMaintenance = stats.PhongDangSua;
 
-                // Revenue chart data (mock 6 months)
+                // Revenue chart data - use actual data from last 6 months
+                var revenueData = stats.DoanhThu12Thang.TakeLast(6).ToList();
+                
+                // Fill in missing months with 0
                 var now = DateTime.Now;
                 for (int i = 5; i >= 0; i--)
                 {
                     var month = now.AddMonths(-i);
-                    _monthLabels[5 - i] = month.ToString("MM/yy");
-                    _revenueData[5 - i] = stats.DoanhThuThang * (decimal)(0.7 + new Random().NextDouble() * 0.6);
+                    var monthKey = month.ToString("MM/yy");
+                    _monthLabels[5 - i] = monthKey;
+                    
+                    var monthData = revenueData.FirstOrDefault(r => r.Thang == monthKey);
+                    _revenueData[5 - i] = monthData?.DoanhThu ?? 0;
                 }
-                _revenueData[5] = stats.DoanhThuThang;
 
                 pnlRevenueChart.Invalidate();
                 pnlRoomChart.Invalidate();

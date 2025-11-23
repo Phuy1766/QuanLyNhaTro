@@ -8,6 +8,7 @@ namespace QuanLyNhaTro.UI.UserControls
     public partial class ucHopDong : UserControl
     {
         private readonly HopDongService _service = new();
+        private readonly BackgroundTaskService _backgroundService = new();
         private DataGridView dgv = null!;
         private ComboBox cboTrangThai = null!;
         private HopDong? _selected;
@@ -34,13 +35,21 @@ namespace QuanLyNhaTro.UI.UserControls
             var btnTerminate = CreateButton("🛑 Thanh lý", Color.FromArgb(239, 68, 68), 235);
             btnTerminate.Click += BtnTerminate_Click;
 
-            var lblFilter = new Label { Text = "Trạng thái:", Location = new Point(370, 18), AutoSize = true };
-            cboTrangThai = new ComboBox { Location = new Point(440, 14), Size = new Size(120, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            var btnAutoExpire = CreateButton("🔄 Cập nhật HĐ", Color.FromArgb(251, 146, 60), 345);
+            btnAutoExpire.Click += BtnAutoExpire_Click;
+            btnAutoExpire.Size = new Size(125, 35);
+
+            var btnDelete = CreateButton("🗑️ Xóa HĐ", Color.FromArgb(220, 38, 38), 480);
+            btnDelete.Click += BtnDelete_Click;
+            btnDelete.Size = new Size(95, 35);
+
+            var lblFilter = new Label { Text = "Trạng thái:", Location = new Point(595, 18), AutoSize = true };
+            cboTrangThai = new ComboBox { Location = new Point(665, 14), Size = new Size(120, 25), DropDownStyle = ComboBoxStyle.DropDownList };
             cboTrangThai.Items.AddRange(new object[] { "-- Tất cả --", "Active", "Expired", "Terminated" });
             cboTrangThai.SelectedIndex = 0;
             cboTrangThai.SelectedIndexChanged += (s, e) => LoadData();
 
-            pnlToolbar.Controls.AddRange(new Control[] { btnAdd, btnExtend, btnTerminate, lblFilter, cboTrangThai });
+            pnlToolbar.Controls.AddRange(new Control[] { btnAdd, btnExtend, btnTerminate, btnAutoExpire, btnDelete, lblFilter, cboTrangThai });
 
             var pnlGrid = new Panel { Dock = DockStyle.Fill, BackColor = ThemeManager.Surface, Padding = new Padding(15) };
             dgv = new DataGridView { Dock = DockStyle.Fill, BackgroundColor = ThemeManager.Surface, BorderStyle = BorderStyle.None };
@@ -99,6 +108,31 @@ namespace QuanLyNhaTro.UI.UserControls
             catch (Exception ex) { UIHelper.ShowError(ex.Message); }
         }
 
+        private async void BtnAutoExpire_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (!UIHelper.Confirm("Cập nhật trạng thái hợp đồng hết hạn và trả phòng về trống?\n\nThao tác này sẽ:\n• Chuyển hợp đồng hết hạn sang Expired\n• Cập nhật phòng về trạng thái Trống"))
+                    return;
+
+                var result = await _backgroundService.AutoExpireContractsAsync();
+                
+                if (result.ExpiredCount > 0)
+                {
+                    UIHelper.ShowSuccess($"Đã cập nhật:\n• {result.ExpiredCount} hợp đồng → Expired\n• {result.UpdatedRooms} phòng → Trống");
+                    LoadData();
+                }
+                else
+                {
+                    UIHelper.ShowWarning("Không có hợp đồng nào hết hạn cần cập nhật.");
+                }
+            }
+            catch (Exception ex)
+            {
+                UIHelper.ShowError($"Lỗi cập nhật: {ex.Message}");
+            }
+        }
+
         private async void BtnAdd_Click(object? sender, EventArgs e)
         {
             var phongService = new PhongTroService();
@@ -118,8 +152,15 @@ namespace QuanLyNhaTro.UI.UserControls
                 return;
             }
 
-            using var frm = new frmExtendContract(_selected);
-            if (frm.ShowDialog() == DialogResult.OK) LoadData();
+                try
+                {
+                    using var frm = new frmExtendContract(_selected);
+                    if (frm.ShowDialog() == DialogResult.OK) await Task.Run(LoadData);
+                }
+                catch (Exception ex)
+                {
+                    UIHelper.ShowError($"Lỗi gia hạn hợp đồng: {ex.Message}");
+                }
         }
 
         private async void BtnTerminate_Click(object? sender, EventArgs e)
@@ -130,8 +171,52 @@ namespace QuanLyNhaTro.UI.UserControls
                 return;
             }
 
-            using var frm = new frmTerminateContract(_selected);
-            if (frm.ShowDialog() == DialogResult.OK) LoadData();
+                try
+                {
+                    using var frm = new frmTerminateContract(_selected);
+                    if (frm.ShowDialog() == DialogResult.OK) await Task.Run(LoadData);
+                }
+                catch (Exception ex)
+                {
+                    UIHelper.ShowError($"Lỗi chấm dứt hợp đồng: {ex.Message}");
+                }
+        }
+
+        private async void BtnDelete_Click(object? sender, EventArgs e)
+        {
+            if (_selected == null)
+            {
+                UIHelper.ShowWarning("Vui lòng chọn hợp đồng!");
+                return;
+            }
+
+            if (_selected.TrangThai != "Expired")
+            {
+                UIHelper.ShowWarning("Chỉ có thể xóa hợp đồng đã hết hạn!");
+                return;
+            }
+
+            if (!UIHelper.Confirm($"Bạn có chắc muốn xóa hợp đồng {_selected.MaHopDong}?\n\nLưu ý: Chỉ xóa được hợp đồng không còn hóa đơn chưa thanh toán."))
+                return;
+
+            try
+            {
+                var (success, message) = await _service.DeleteExpiredAsync(_selected.HopDongId);
+                
+                if (success)
+                {
+                    UIHelper.ShowSuccess(message);
+                    LoadData();
+                }
+                else
+                {
+                    UIHelper.ShowError(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                UIHelper.ShowError($"Lỗi xóa hợp đồng: {ex.Message}");
+            }
         }
 
         private void InitializeComponent()

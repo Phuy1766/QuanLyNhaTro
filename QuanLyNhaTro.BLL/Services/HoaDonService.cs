@@ -48,6 +48,11 @@ namespace QuanLyNhaTro.BLL.Services
             if (hopDong.TrangThai != "Active")
                 return (false, "Hợp đồng không còn hoạt động!", 0);
 
+            // ✅ FIX: Không cho tạo hóa đơn cho tháng sau khi hợp đồng hết hạn
+            var thangNamChuanHoa = new DateTime(thangNam.Year, thangNam.Month, 1);
+            if (thangNamChuanHoa > new DateTime(hopDong.NgayKetThuc.Year, hopDong.NgayKetThuc.Month, 1))
+                return (false, $"Không thể tạo hóa đơn cho tháng {thangNam:MM/yyyy}. Hợp đồng hết hạn {hopDong.NgayKetThuc:dd/MM/yyyy}!", 0);
+
             // Check đã có hóa đơn tháng này chưa
             if (await _repo.ExistsForMonthAsync(hopDongId, thangNam))
                 return (false, "Đã có hóa đơn cho tháng này!", 0);
@@ -56,17 +61,39 @@ namespace QuanLyNhaTro.BLL.Services
             decimal tongDichVu = chiTietDichVu.Sum(x => x.ThanhTien);
             decimal tongCong = hopDong.GiaThue + tongDichVu;
 
+            // ✅ FIX: Tính NgayHetHan hợp lý
+            // Nếu tạo hóa đơn tháng hiện tại, cho hạn thanh toán từ ngày tạo + 10 ngày
+            // Nếu tạo hóa đơn tháng tương lai, cho hạn = ngày 10 của tháng đó
+            DateTime ngayHetHan;
+            var thangHienTai = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            
+            if (thangNamChuanHoa == thangHienTai)
+            {
+                // Hóa đơn tháng hiện tại: cho 10 ngày kể từ hôm nay
+                ngayHetHan = DateTime.Now.Date.AddDays(10);
+            }
+            else if (thangNamChuanHoa < thangHienTai)
+            {
+                // Hóa đơn tháng quá khứ: hết hạn ngay
+                ngayHetHan = DateTime.Now.Date.AddDays(3); // Cho 3 ngày gia hạn
+            }
+            else
+            {
+                // Hóa đơn tháng tương lai: ngày 10 của tháng đó
+                ngayHetHan = new DateTime(thangNam.Year, thangNam.Month, 10);
+            }
+
             var hoaDon = new HoaDon
             {
                 MaHoaDon = await _repo.GenerateMaHoaDonAsync(thangNam),
                 HopDongId = hopDongId,
-                ThangNam = new DateTime(thangNam.Year, thangNam.Month, 1),
+                ThangNam = thangNamChuanHoa,
                 TienPhong = hopDong.GiaThue,
                 TongTienDichVu = tongDichVu,
                 TongCong = tongCong,
                 DaThanhToan = 0,
                 ConNo = tongCong,
-                NgayHetHan = new DateTime(thangNam.Year, thangNam.Month, 1).AddDays(10),
+                NgayHetHan = ngayHetHan,
                 TrangThai = "ChuaThanhToan",
                 CreatedBy = AuthService.CurrentUser?.UserId
             };
@@ -163,6 +190,30 @@ namespace QuanLyNhaTro.BLL.Services
             }
 
             return (result, result ? "Thanh toán thành công!" : "Thanh toán thất bại!");
+        }
+
+        /// <summary>
+        /// Xóa hóa đơn (chỉ cho phép xóa hóa đơn chưa thanh toán)
+        /// </summary>
+        public async Task<bool> DeleteAsync(int hoaDonId)
+        {
+            var hoaDon = await _repo.GetByIdAsync(hoaDonId);
+            if (hoaDon == null)
+                return false;
+
+            // Chỉ cho phép xóa hóa đơn chưa thanh toán
+            if (hoaDon.TrangThai == "DaThanhToan")
+                return false;
+
+            var result = await _repo.DeleteAsync(hoaDonId);
+
+            if (result && AuthService.CurrentUser != null)
+            {
+                await _logRepo.LogAsync(AuthService.CurrentUser.UserId, "HOADON", hoaDon.MaHoaDon, "DELETE",
+                    moTa: $"Xóa hóa đơn {hoaDon.MaHoaDon} - Tháng {hoaDon.ThangNam:MM/yyyy}");
+            }
+
+            return result;
         }
 
         /// <summary>

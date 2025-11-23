@@ -16,7 +16,7 @@ namespace QuanLyNhaTro.UI.UserControls
         private ModernDataGrid dgvInvoices = null!;
         private Label lblSummary = null!;
         private Label lblEmptyMessage = null!;
-        private Panel pnlMainCard;
+            private Panel pnlMainCard = null!;
 
         public ucMyInvoice(int tenantUserId)
         {

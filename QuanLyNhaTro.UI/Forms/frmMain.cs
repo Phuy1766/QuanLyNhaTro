@@ -10,6 +10,8 @@ namespace QuanLyNhaTro.UI.Forms
     {
         private readonly AuthService _authService = new();
         private readonly NotificationRepository _notiRepo = new();
+        private readonly BackgroundTaskService _backgroundService = new();
+        private System.Windows.Forms.Timer? _dailyTaskTimer;
 
         // Controls
         private Panel pnlSidebar = null!;
@@ -29,6 +31,7 @@ namespace QuanLyNhaTro.UI.Forms
             SetupForm();
             CreateLayout();
             SetupMenu();
+            SetupBackgroundTasks();
             LoadDashboard();
             LoadNotificationCount();
         }
@@ -41,8 +44,47 @@ namespace QuanLyNhaTro.UI.Forms
             this.MinimumSize = new Size(1200, 700);
             this.BackColor = ThemeManager.Background;
             this.DoubleBuffered = true;
+            this.FormClosing += FrmMain_FormClosing;
 
             ThemeManager.IsDarkMode = AuthService.CurrentUser?.Theme == "Dark";
+        }
+
+        private void SetupBackgroundTasks()
+        {
+            // Chạy ngay khi khởi động (chỉ Admin/Manager)
+            if (AuthService.IsAdmin || AuthService.IsManager)
+            {
+                Task.Run(async () => await RunBackgroundTasksAsync());
+
+                // Timer chạy mỗi 6 giờ để kiểm tra
+                _dailyTaskTimer = new System.Windows.Forms.Timer();
+                _dailyTaskTimer.Interval = 6 * 60 * 60 * 1000; // 6 giờ
+                _dailyTaskTimer.Tick += async (s, e) => await RunBackgroundTasksAsync();
+                _dailyTaskTimer.Start();
+            }
+        }
+
+        private async Task RunBackgroundTasksAsync()
+        {
+            try
+            {
+                // Tự động expire hợp đồng hết hạn
+                await _backgroundService.AutoExpireContractsAsync();
+                
+                // Tự động hủy yêu cầu thuê phòng hết hạn
+                await _backgroundService.AutoCancelExpiredBookingRequestsAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log error silently, không hiện popup để không làm phiền user
+                System.Diagnostics.Debug.WriteLine($"Background task error: {ex.Message}");
+            }
+        }
+
+        private void FrmMain_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            _dailyTaskTimer?.Stop();
+            _dailyTaskTimer?.Dispose();
         }
 
         private void CreateLayout()

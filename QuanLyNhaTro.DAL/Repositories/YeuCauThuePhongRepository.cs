@@ -116,6 +116,31 @@ namespace QuanLyNhaTro.DAL.Repositories
         }
 
         /// <summary>
+            /// Cập nhật trạng thái yêu cầu
+            /// </summary>
+            public async Task<bool> UpdateStatusAsync(int maYeuCau, string trangThai)
+            {
+                using var conn = GetConnection();
+                var sql = @"UPDATE YEUCAU_THUEPHONG 
+                            SET TrangThai = @TrangThai, NgayXuLy = GETDATE() 
+                            WHERE MaYeuCau = @MaYeuCau";
+                var result = await conn.ExecuteAsync(sql, new { MaYeuCau = maYeuCau, TrangThai = trangThai });
+                return result > 0;
+            }
+
+            /// <summary>
+            /// Lấy các yêu cầu pending payment đã quá hạn (>24h)
+            /// </summary>
+            public async Task<IEnumerable<YeuCauThuePhong>> GetExpiredRequestsAsync()
+            {
+                using var conn = GetConnection();
+                var sql = @"SELECT * FROM YEUCAU_THUEPHONG 
+                            WHERE TrangThai = 'PendingPayment' 
+                            AND DATEDIFF(HOUR, NgayXuLy, GETDATE()) > 24";
+                return await conn.QueryAsync<YeuCauThuePhong>(sql);
+            }
+
+            /// <summary>
         /// Đếm yêu cầu pending
         /// </summary>
         public async Task<int> CountPendingAsync()

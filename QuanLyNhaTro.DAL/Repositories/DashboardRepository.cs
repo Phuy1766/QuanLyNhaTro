@@ -34,12 +34,12 @@ namespace QuanLyNhaTro.DAL.Repositories
             stats.TongKhachThue = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(DISTINCT KhachId) FROM HOPDONG WHERE TrangThai = N'Active'");
 
-            // Doanh thu tháng này
+            // Doanh thu tháng này (tổng đã thanh toán của các hóa đơn tháng này)
             stats.DoanhThuThang = await conn.ExecuteScalarAsync<decimal>(@"
                 SELECT ISNULL(SUM(DaThanhToan), 0)
                 FROM HOADON
-                WHERE MONTH(NgayThanhToan) = MONTH(GETDATE())
-                  AND YEAR(NgayThanhToan) = YEAR(GETDATE())");
+                WHERE MONTH(ThangNam) = MONTH(GETDATE())
+                  AND YEAR(ThangNam) = YEAR(GETDATE())");
 
             // Tổng công nợ
             stats.TongCongNo = await conn.ExecuteScalarAsync<decimal>(
@@ -62,14 +62,15 @@ namespace QuanLyNhaTro.DAL.Repositories
             stats.BaoTriMoi = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(*) FROM BAOTRI_TICKET WHERE TrangThai = N'Mới'");
 
-            // Doanh thu 12 tháng gần nhất
+            // Doanh thu 6 tháng gần nhất (bao gồm tháng hiện tại)
             stats.DoanhThu12Thang = (await conn.QueryAsync<DoanhThuTheoThang>(@"
                 SELECT
-                    FORMAT(ThangNam, 'MM/yyyy') AS Thang,
-                    SUM(DaThanhToan) AS DoanhThu
+                    FORMAT(ThangNam, 'MM/yy') AS Thang,
+                    ISNULL(SUM(DaThanhToan), 0) AS DoanhThu
                 FROM HOADON
-                WHERE ThangNam >= DATEADD(MONTH, -12, GETDATE())
-                GROUP BY FORMAT(ThangNam, 'MM/yyyy'), YEAR(ThangNam), MONTH(ThangNam)
+                WHERE ThangNam >= DATEADD(MONTH, -5, DATEADD(DAY, 1-DAY(GETDATE()), GETDATE()))
+                  AND ThangNam <= DATEADD(DAY, 1-DAY(GETDATE()), GETDATE())
+                GROUP BY FORMAT(ThangNam, 'MM/yy'), YEAR(ThangNam), MONTH(ThangNam)
                 ORDER BY YEAR(ThangNam), MONTH(ThangNam)")).ToList();
 
             // Phòng theo trạng thái (cho biểu đồ tròn)

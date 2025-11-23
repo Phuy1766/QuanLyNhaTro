@@ -42,9 +42,13 @@ namespace QuanLyNhaTro.UI.UserControls
             btnEmail.Width = 100;
             btnEmail.Click += BtnEmail_Click;
 
+            var btnDelete = CreateButton("🗑️ Xóa", Color.FromArgb(220, 53, 69), 475);
+            btnDelete.Width = 80;
+            btnDelete.Click += BtnDelete_Click;
+
             // Filter Tháng với option "Tất cả"
-            var lblThang = new Label { Text = "Tháng:", Location = new Point(490, 18), AutoSize = true };
-            var cboThang = new ComboBox { Location = new Point(540, 14), Size = new Size(120, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            var lblThang = new Label { Text = "Tháng:", Location = new Point(575, 18), AutoSize = true };
+            var cboThang = new ComboBox { Location = new Point(625, 14), Size = new Size(120, 25), DropDownStyle = ComboBoxStyle.DropDownList };
             cboThang.Items.Add("-- Tất cả --");
 
             // Thêm các tháng từ tháng hiện tại trở về trước 12 tháng
@@ -60,13 +64,13 @@ namespace QuanLyNhaTro.UI.UserControls
             // Lưu ComboBox tháng vào field để dùng trong LoadData
             dtpThang = new DateTimePicker { Visible = false }; // Ẩn đi nhưng giữ lại để tránh lỗi
 
-            var lblFilter = new Label { Text = "TT:", Location = new Point(680, 18), AutoSize = true };
-            cboTrangThai = new ComboBox { Location = new Point(710, 14), Size = new Size(150, 25), DropDownStyle = ComboBoxStyle.DropDownList };
+            var lblFilter = new Label { Text = "TT:", Location = new Point(765, 18), AutoSize = true };
+            cboTrangThai = new ComboBox { Location = new Point(795, 14), Size = new Size(150, 25), DropDownStyle = ComboBoxStyle.DropDownList };
             cboTrangThai.Items.AddRange(new object[] { "-- Tất cả --", "ChuaThanhToan", "ChoXacNhan", "DaThanhToan", "QuaHan" });
             cboTrangThai.SelectedIndex = 0;
             cboTrangThai.SelectedIndexChanged += (s, e) => LoadData();
 
-            pnlToolbar.Controls.AddRange(new Control[] { btnCreate, btnBatch, btnPay, btnEmail, lblThang, cboThang, lblFilter, cboTrangThai });
+            pnlToolbar.Controls.AddRange(new Control[] { btnCreate, btnBatch, btnPay, btnEmail, btnDelete, lblThang, cboThang, lblFilter, cboTrangThai });
 
             // Lưu cboThang để sử dụng
             pnlToolbar.Tag = cboThang;
@@ -250,6 +254,50 @@ namespace QuanLyNhaTro.UI.UserControls
             var (ok, msg) = await _emailService.SendInvoiceAsync(_selected.HoaDonId);
             if (ok) UIHelper.ShowSuccess(msg);
             else UIHelper.ShowError(msg);
+        }
+
+        private async void BtnDelete_Click(object? sender, EventArgs e)
+        {
+            if (_selected == null) 
+            { 
+                UIHelper.ShowWarning("Vui lòng chọn hóa đơn cần xóa!"); 
+                return; 
+            }
+
+            if (_selected.TrangThai == "DaThanhToan")
+            {
+                UIHelper.ShowWarning("Không thể xóa hóa đơn đã thanh toán!\n\nChỉ có thể xóa hóa đơn chưa thanh toán.");
+                return;
+            }
+
+            var confirmMsg = $"Xác nhận xóa hóa đơn?\n\n" +
+                $"Mã hóa đơn: {_selected.MaHoaDon}\n" +
+                $"Phòng: {_selected.MaPhong}\n" +
+                $"Khách thuê: {_selected.TenKhachThue}\n" +
+                $"Tháng: {_selected.ThangNam:MM/yyyy}\n" +
+                $"Tổng tiền: {_selected.TongCong:N0} VNĐ\n\n" +
+                $"Hành động này không thể hoàn tác!";
+
+            if (!UIHelper.Confirm(confirmMsg))
+                return;
+
+            try
+            {
+                var success = await _service.DeleteAsync(_selected.HoaDonId);
+                if (success)
+                {
+                    UIHelper.ShowSuccess($"Đã xóa hóa đơn {_selected.MaHoaDon} thành công!");
+                    LoadData();
+                }
+                else
+                {
+                    UIHelper.ShowError("Không thể xóa hóa đơn!");
+                }
+            }
+            catch (Exception ex)
+            {
+                UIHelper.ShowError($"Lỗi khi xóa hóa đơn: {ex.Message}");
+            }
         }
 
         private void InitializeComponent()

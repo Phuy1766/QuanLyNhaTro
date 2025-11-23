@@ -790,7 +790,11 @@ private void DgvRequests_CellFormatting(object? sender, DataGridViewCellFormatti
 
         private async void BtnCancelPayment_Click(object? sender, EventArgs e)
         {
-            if (_selectedRequest?.MaThanhToan == null) return;
+                if (_selectedRequest?.MaThanhToan == null) 
+                {
+                    await Task.CompletedTask;
+                    return;
+                }
 
             var popup = new Form
             {

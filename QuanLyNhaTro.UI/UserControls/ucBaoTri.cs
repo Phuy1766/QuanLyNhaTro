@@ -79,7 +79,14 @@ namespace QuanLyNhaTro.UI.UserControls
         private async void LoadData()
         {
             string? trangThai = cboTrangThai.SelectedIndex > 0 ? cboTrangThai.Text : null;
-            dgv.DataSource = (await _service.GetAllAsync(trangThai)).ToList();
+                try
+                {
+                    dgv.DataSource = (await _service.GetAllAsync(trangThai)).ToList();
+                }
+                catch (Exception ex)
+                {
+                    UIHelper.ShowError($"Lỗi tải dữ liệu: {ex.Message}");
+                }
         }
 
         private async void BtnAdd_Click(object? sender, EventArgs e)
@@ -98,7 +105,7 @@ namespace QuanLyNhaTro.UI.UserControls
             else UIHelper.ShowError(msg);
         }
 
-        private async void BtnComplete_Click(object? sender, EventArgs e)
+        private void BtnComplete_Click(object? sender, EventArgs e)
         {
             if (_selected == null || _selected.TrangThai == "Hoàn thành") { UIHelper.ShowWarning("Vui lòng chọn yêu cầu đang xử lý!"); return; }
             using var frm = new frmCompleteTicket(_selected);

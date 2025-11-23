@@ -9,7 +9,9 @@
       "Bash(dir:*)",
       "Bash(Select-Object -First 30)",
       "Bash(sqlcmd:*)",
-      "Bash(Select-String -Pattern \"(error|warning)\")"
+      "Bash(Select-String -Pattern \"(error|warning)\")",
+      "Bash(Get-Process -Name \"QuanLyNhaTro.UI\" -ErrorAction SilentlyContinue)",
+      "Bash(Stop-Process -Force)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,6 @@
 using QuanLyNhaTro.DAL.Repositories;
 using QuanLyNhaTro.DAL.Models;
 using QuanLyNhaTro.UI.Helpers;
-using QuanLyNhaTro.UI.Themes;
 using System.Drawing;
 
 namespace QuanLyNhaTro.UI.UserControls
@@ -13,206 +12,163 @@ namespace QuanLyNhaTro.UI.UserControls
         private readonly TaiSanRepository _taiSanRepo = new();
         private readonly int _tenantUserId;
 
-        private DataGridView dgvRooms = null!;
-        private Panel pnlDetail = null!;
-        private Panel pnlDetailContent = null!;
-        private Label lblNoSelection = null!;
-        private HopDong? _selectedContract;
+        private ModernDataGrid dgvRooms = null!;
+        private Label lblSummary = null!;
+        private Label lblEmptyMessage = null!;
+        private Panel pnlMainCard = null!;
 
         public ucMyRoom(int tenantUserId)
         {
             _tenantUserId = tenantUserId;
             InitializeComponent();
-            CreateLayout();
-            LoadRoomsAsync();
+            BuildModernUI();
+            LoadDataAsync();
         }
 
-        private void CreateLayout()
+        private void BuildModernUI()
         {
-            this.BackColor = ColorTranslator.FromHtml("#F3F4F6");
+            this.BackColor = Color.FromArgb(245, 246, 250);
             this.Padding = new Padding(20);
 
-            // Main layout: 40% list | 60% detail
-            var mainLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                ColumnStyles = {
-                    new ColumnStyle(SizeType.Percent, 40F),
-                    new ColumnStyle(SizeType.Percent, 60F)
-                }
-            };
-
-            // Left panel: Danh sách phòng
-            var pnlList = CreateListPanel();
-            mainLayout.Controls.Add(pnlList, 0, 0);
-
-            // Right panel: Chi tiết
-            pnlDetail = CreateDetailPanel();
-            mainLayout.Controls.Add(pnlDetail, 1, 0);
-
-            this.Controls.Add(mainLayout);
-        }
-
-        private Panel CreateListPanel()
-        {
-            var panel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(0, 0, 10, 0)
-            };
-
-            // Title
-            var lblTitle = new Label
-            {
-                Text = "Danh sách phòng của bạn",
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-                ForeColor = ColorTranslator.FromHtml("#1F2937"),
-                AutoSize = true,
-                Location = new Point(0, 0)
-            };
-            panel.Controls.Add(lblTitle);
-
-            // DataGridView
-            dgvRooms = new DataGridView
-            {
-                Location = new Point(0, 35),
-                Width = panel.Width,
-                Height = panel.Height - 35,
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-                RowHeadersVisible = false,
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersHeight = 40,
-                RowTemplate = { Height = 70 }
-            };
-
-            // Style
-            dgvRooms.ColumnHeadersDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#F9FAFB");
-            dgvRooms.ColumnHeadersDefaultCellStyle.ForeColor = ColorTranslator.FromHtml("#374151");
-            dgvRooms.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dgvRooms.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dgvRooms.ColumnHeadersDefaultCellStyle.Padding = new Padding(10, 0, 0, 0);
-
-            dgvRooms.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#DBEAFE");
-            dgvRooms.DefaultCellStyle.SelectionForeColor = ColorTranslator.FromHtml("#1E40AF");
-            dgvRooms.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
-            dgvRooms.DefaultCellStyle.Padding = new Padding(10, 5, 10, 5);
-            dgvRooms.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
-
-            dgvRooms.SelectionChanged += DgvRooms_SelectionChanged;
-
-            SetupListColumns();
-
-            panel.Controls.Add(dgvRooms);
-
-            return panel;
-        }
-
-        private void SetupListColumns()
-        {
-            dgvRooms.Columns.Clear();
-
-            dgvRooms.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "MaPhong",
-                HeaderText = "Mã phòng",
-                DataPropertyName = "MaPhong",
-                Width = 80,
-                MinimumWidth = 80
-            });
-
-            dgvRooms.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "BuildingName",
-                HeaderText = "Tòa nhà",
-                DataPropertyName = "BuildingName",
-                Width = 100,
-                MinimumWidth = 90
-            });
-
-            dgvRooms.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "TenLoai",
-                HeaderText = "Loại phòng",
-                DataPropertyName = "TenLoai",
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
-            });
-        }
-
-        private Panel CreateDetailPanel()
-        {
-            var panel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-
-            var innerPanel = new Panel
+            // Card chính
+            pnlMainCard = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(0),
-                BorderStyle = BorderStyle.FixedSingle
+                Padding = new Padding(30),
+                BorderStyle = BorderStyle.None
             };
+            UIHelper.ApplyCardShadow(pnlMainCard);
 
-            // No selection label
-            lblNoSelection = new Label
+            // Header
+            var pnlHeader = new Panel { Height = 80, Dock = DockStyle.Top };
+            var lblIcon = new Label
             {
-                Text = "Chọn một phòng để xem chi tiết",
-                Font = new Font("Segoe UI", 11F, FontStyle.Regular),
-                ForeColor = ColorTranslator.FromHtml("#9CA3AF"),
-                TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Fill
+                Text = "🏠",
+                Font = new Font("Segoe UI", 32F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 122, 255),
+                Location = new Point(0, 15),
+                AutoSize = true
             };
+            var lblTitle = new Label
+            {
+                Text = "Phòng của tôi",
+                Font = new Font("Segoe UI Semibold", 24F),
+                ForeColor = Color.FromArgb(52, 58, 64),
+                Location = new Point(80, 22),
+                AutoSize = true
+            };
+            pnlHeader.Controls.AddRange(new Control[] { lblIcon, lblTitle });
 
-            // Detail content panel
-            pnlDetailContent = new Panel
+            // Summary
+            var pnlSummary = new Panel
+            {
+                Height = 70,
+                Dock = DockStyle.Top,
+                BackColor = Color.FromArgb(0, 122, 255)
+            };
+            lblSummary = new Label
+            {
+                Text = "Đang tải dữ liệu...",
+                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(30, 0, 0, 0)
+            };
+            pnlSummary.Controls.Add(lblSummary);
+
+            // DataGrid
+            dgvRooms = new ModernDataGrid
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
-                Visible = false,
-                Padding = new Padding(30, 25, 30, 25)
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AutoGenerateColumns = false,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersHeight = 56,
+                ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = Color.FromArgb(52, 58, 64),
+                    ForeColor = Color.White,
+                    Font = new Font("Segoe UI Semibold", 11F),
+                    Alignment = DataGridViewContentAlignment.MiddleLeft,
+                    Padding = new Padding(16, 0, 0, 0)
+                },
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    Padding = new Padding(16, 12, 16, 12),
+                    Font = new Font("Segoe UI", 11F),
+                    SelectionBackColor = Color.FromArgb(0, 122, 255),
+                    SelectionForeColor = Color.White
+                },
+                AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = Color.FromArgb(248, 249, 250)
+                }
             };
 
-            innerPanel.Controls.Add(lblNoSelection);
-            innerPanel.Controls.Add(pnlDetailContent);
-
-            panel.Controls.Add(innerPanel);
-
-            return panel;
-        }
-
-        private void DgvRooms_SelectionChanged(object? sender, EventArgs e)
-        {
-            if (dgvRooms.SelectedRows.Count > 0)
+            // Hover row
+            dgvRooms.CellMouseEnter += (s, e) =>
             {
-                var row = dgvRooms.SelectedRows[0];
-                int hopDongId = Convert.ToInt32(row.Cells["HopDongId"].Value);
-                LoadDetailPanel(hopDongId);
-            }
-            else
+                if (e.RowIndex >= 0)
+                    dgvRooms.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(240, 248, 255);
+            };
+            dgvRooms.CellMouseLeave += (s, e) =>
             {
-                ShowNoSelection();
-            }
+                if (e.RowIndex >= 0)
+                    dgvRooms.Rows[e.RowIndex].DefaultCellStyle.BackColor =
+                        (e.RowIndex % 2 == 0) ? Color.White : Color.FromArgb(248, 249, 250);
+            };
+
+            // Cột
+            UIHelper.AddColumn(dgvRooms, "MaPhong", "Mã phòng", "MaPhong", 110);
+            UIHelper.AddColumn(dgvRooms, "BuildingName", "Tòa nhà", "BuildingName", 150);
+            UIHelper.AddColumn(dgvRooms, "NgayBatDau", "Từ ngày", "NgayBatDau", 120);
+            UIHelper.AddColumn(dgvRooms, "NgayKetThuc", "Đến ngày", "NgayKetThuc", 120);
+            UIHelper.AddColumn(dgvRooms, "GiaThue", "Giá thuê", "GiaThue", 130);
+            UIHelper.AddColumn(dgvRooms, "TrangThaiHopDong", "Trạng thái", "TrangThaiHopDong", 150);
+
+            var btnDetail = new DataGridViewButtonColumn
+            {
+                Name = "btnDetail",
+                HeaderText = "Chi tiết",
+                Text = "Xem chi tiết",
+                UseColumnTextForButtonValue = true,
+                Width = 120,
+                FlatStyle = FlatStyle.Flat,
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = Color.FromArgb(0, 122, 255),
+                    ForeColor = Color.White,
+                    Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+                }
+            };
+            dgvRooms.Columns.Add(btnDetail);
+
+            dgvRooms.CellClick += DgvRooms_CellClick;
+            dgvRooms.CellFormatting += DgvRooms_CellFormatting;
+
+            // Empty message
+            lblEmptyMessage = new Label
+            {
+                Font = new Font("Segoe UI", 16F),
+                ForeColor = Color.FromArgb(149, 165, 166),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+
+            // Layout
+            pnlMainCard.Controls.AddRange(new Control[] { dgvRooms, lblEmptyMessage, pnlSummary, pnlHeader });
+            this.Controls.Add(pnlMainCard);
         }
 
-        private void ShowNoSelection()
-        {
-            lblNoSelection.Visible = true;
-            pnlDetailContent.Visible = false;
-            _selectedContract = null;
-        }
-
-        private async void LoadRoomsAsync()
+        private async void LoadDataAsync()
         {
             try
             {
@@ -221,234 +177,147 @@ namespace QuanLyNhaTro.UI.UserControls
                     .OrderBy(c => c.MaPhong)
                     .ToList();
 
-                // Add HopDongId as hidden column
-                if (!dgvRooms.Columns.Contains("HopDongId"))
+                if (contracts.Count == 0)
                 {
-                    dgvRooms.Columns.Add(new DataGridViewTextBoxColumn
-                    {
-                        Name = "HopDongId",
-                        DataPropertyName = "HopDongId",
-                        Visible = false
-                    });
+                    lblSummary.Text = "Bạn chưa có phòng nào đang thuê";
+                    ShowEmpty("Bạn chưa có phòng nào đang thuê.\\n\\nHãy đăng ký thuê phòng tại menu 'Tìm phòng trống'.");
+                    return;
                 }
 
+                HideEmpty();
                 dgvRooms.DataSource = contracts;
 
-                if (dgvRooms.Rows.Count == 0)
+                lblSummary.Text = $"Tổng: {contracts.Count} phòng đang thuê";
+
+                // Format
+                foreach (DataGridViewColumn col in dgvRooms.Columns)
                 {
-                    ShowNoSelection();
-                    lblNoSelection.Text = "Bạn chưa có phòng nào đang thuê";
+                    if (col.Name == "GiaThue")
+                        col.DefaultCellStyle.Format = "N0";
+                    if (col.Name is "NgayBatDau" or "NgayKetThuc")
+                        col.DefaultCellStyle.Format = "dd/MM/yyyy";
                 }
             }
             catch (Exception ex)
             {
-                UIHelper.ShowError($"Lỗi tải danh sách phòng: {ex.Message}");
+                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private async void LoadDetailPanel(int hopDongId)
+        private void ShowEmpty(string message)
+        {
+            lblEmptyMessage.Text = message;
+            lblEmptyMessage.Visible = true;
+            dgvRooms.Visible = false;
+        }
+
+        private void HideEmpty()
+        {
+            lblEmptyMessage.Visible = false;
+            dgvRooms.Visible = true;
+            dgvRooms.BringToFront();
+        }
+
+        private void DgvRooms_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+
+            var contract = dgvRooms.Rows[e.RowIndex].DataBoundItem as HopDong;
+            if (contract == null) return;
+
+            var columnName = dgvRooms.Columns[e.ColumnIndex].Name;
+
+            if (columnName == "btnDetail")
+            {
+                ShowRoomDetail(contract);
+            }
+        }
+
+        private void DgvRooms_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+
+            var contract = dgvRooms.Rows[e.RowIndex].DataBoundItem as HopDong;
+            if (contract == null) return;
+
+            // Tùy chỉnh hiển thị trạng thái hợp đồng
+            if (dgvRooms.Columns[e.ColumnIndex].Name == "TrangThaiHopDong")
+            {
+                var cell = dgvRooms.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                cell.Style.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+
+                // Kiểm tra hết hạn
+                if (contract.TrangThai == "Active" && contract.NgayKetThuc < DateTime.Now)
+                {
+                    e.Value = "Đã hết hạn";
+                    cell.Style.ForeColor = Color.FromArgb(231, 76, 60); // Red
+                }
+                else if (contract.TrangThai == "Active")
+                {
+                    e.Value = "Đang hiệu lực";
+                    cell.Style.ForeColor = Color.FromArgb(39, 174, 96); // Green
+                }
+                else
+                {
+                    e.Value = contract.TrangThai;
+                    cell.Style.ForeColor = Color.FromArgb(149, 165, 166); // Gray
+                }
+            }
+        }
+
+        private async void ShowRoomDetail(HopDong contract)
         {
             try
             {
-                var contracts = await _hopDongRepo.GetByTenantUserIdAsync(_tenantUserId);
-                _selectedContract = contracts.FirstOrDefault(c => c.HopDongId == hopDongId);
-
-                if (_selectedContract == null)
-                {
-                    ShowNoSelection();
-                    return;
-                }
-
-                var room = await _phongRepo.GetByMaPhongAsync(_selectedContract.MaPhong);
+                var room = await _phongRepo.GetByMaPhongAsync(contract.MaPhong);
                 if (room == null)
                 {
-                    ShowNoSelection();
-                    lblNoSelection.Text = "Không tìm thấy thông tin phòng";
+                    MessageBox.Show("Không tìm thấy thông tin phòng", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                pnlDetailContent.Controls.Clear();
+                var assets = (await _taiSanRepo.GetByPhongIdAsync(room.PhongId)).ToList();
 
-                int yPos = 0;
-
-                // Header
-                var lblHeader = new Label
+                // Kiểm tra trạng thái hợp đồng
+                var contractStatusDisplay = "Đang hiệu lực";
+                if (contract.TrangThai == "Active" && contract.NgayKetThuc < DateTime.Now)
                 {
-                    Text = $"Chi tiết phòng {room.MaPhong}",
-                    Font = new Font("Segoe UI", 13F, FontStyle.Bold),
-                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
-                    AutoSize = true,
-                    Location = new Point(0, yPos)
-                };
-                pnlDetailContent.Controls.Add(lblHeader);
-                yPos += 45;
-
-                // Thông tin phòng
-                var block1 = CreateInfoBlock("Thông tin phòng", new[]
-                {
-                    new InfoItem("Mã phòng", room.MaPhong ?? "N/A"),
-                    new InfoItem("Tòa nhà", room.BuildingName ?? "N/A"),
-                    new InfoItem("Loại phòng", room.TenLoai ?? "N/A"),
-                    new InfoItem("Tầng", room.Tang.ToString()),
-                    new InfoItem("Diện tích", $"{room.DienTich} m²"),
-                    new InfoItem("Giá thuê", $"{room.GiaThue:N0} VNĐ/tháng"),
-                    new InfoItem("Số người tối đa", room.SoNguoiToiDa.ToString()),
-                    new InfoItem("Trạng thái", room.TrangThai ?? "N/A")
-                }, 0, yPos);
-                pnlDetailContent.Controls.Add(block1);
-                yPos += block1.Height + 20;
-
-                // Thông tin hợp đồng
-                var block2 = CreateInfoBlock("Thông tin hợp đồng", new[]
-                {
-                    new InfoItem("Mã hợp đồng", _selectedContract.MaHopDong ?? "N/A"),
-                    new InfoItem("Ngày bắt đầu", _selectedContract.NgayBatDau.ToString("dd/MM/yyyy")),
-                    new InfoItem("Ngày kết thúc", _selectedContract.NgayKetThuc.ToString("dd/MM/yyyy")),
-                    new InfoItem("Giá thuê", $"{_selectedContract.GiaThue:N0} VNĐ/tháng"),
-                    new InfoItem("Tiền cọc", $"{_selectedContract.TienCoc:N0} VNĐ"),
-                    new InfoItem("Chu kỳ thanh toán", $"{_selectedContract.ChuKyThanhToan} tháng"),
-                    new InfoItem("Trạng thái", _selectedContract.TrangThai ?? "N/A")
-                }, 0, yPos);
-                pnlDetailContent.Controls.Add(block2);
-                yPos += block2.Height + 20;
-
-                // Tài sản trong phòng
-                var lblAssets = new Label
-                {
-                    Text = "Tài sản trong phòng",
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
-                    AutoSize = true,
-                    Location = new Point(0, yPos)
-                };
-                pnlDetailContent.Controls.Add(lblAssets);
-                yPos += 35;
-
-                // DataGridView for assets
-                var dgvAssets = new DataGridView
-                {
-                    Location = new Point(0, yPos),
-                    Width = pnlDetailContent.ClientSize.Width - 40,
-                    Height = 250,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                    BackgroundColor = Color.White,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    AllowUserToAddRows = false,
-                    AllowUserToDeleteRows = false,
-                    ReadOnly = true,
-                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                    MultiSelect = false,
-                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                    RowHeadersVisible = false,
-                    EnableHeadersVisualStyles = false,
-                    ColumnHeadersHeight = 35,
-                    RowTemplate = { Height = 35 }
-                };
-
-                UIHelper.StyleDataGridView(dgvAssets);
-                UIHelper.AddColumn(dgvAssets, "TenTaiSan", "Tên tài sản", "TenTaiSan", 200);
-                UIHelper.AddColumn(dgvAssets, "SoLuong", "Số lượng", "SoLuong", 80);
-                UIHelper.AddColumn(dgvAssets, "TinhTrang", "Tình trạng", "TinhTrang", 120);
-                UIHelper.AddColumn(dgvAssets, "GhiChu", "Ghi chú", "GhiChu", 150);
-
-                try
-                {
-                    var assets = await _taiSanRepo.GetByPhongIdAsync(room.PhongId);
-                    dgvAssets.DataSource = assets.ToList();
-                }
-                catch
-                {
-                    // Ignore
+                    contractStatusDisplay = "Đã hết hạn";
                 }
 
-                pnlDetailContent.Controls.Add(dgvAssets);
+                var detail = $"=== THÔNG TIN PHÒNG ===\\n" +
+                            $"Mã phòng: {room.MaPhong}\\n" +
+                            $"Tòa nhà: {room.BuildingName}\\n" +
+                            $"Loại phòng: {room.TenLoai}\\n" +
+                            $"Tầng: {room.Tang}\\n" +
+                            $"Diện tích: {room.DienTich} m²\\n" +
+                            $"Giá thuê: {room.GiaThue:N0} VNĐ/tháng\\n" +
+                            $"Số người tối đa: {room.SoNguoiToiDa}\\n\\n" +
+                            $"=== THÔNG TIN HỢP ĐỒNG ===\\n" +
+                            $"Mã hợp đồng: {contract.MaHopDong}\\n" +
+                            $"Ngày bắt đầu: {contract.NgayBatDau:dd/MM/yyyy}\\n" +
+                            $"Ngày kết thúc: {contract.NgayKetThuc:dd/MM/yyyy}\\n" +
+                            $"Giá thuê: {contract.GiaThue:N0} VNĐ/tháng\\n" +
+                            $"Tiền cọc: {contract.TienCoc:N0} VNĐ\\n" +
+                            $"Chu kỳ thanh toán: {contract.ChuKyThanhToan} tháng\\n" +
+                            $"Trạng thái: {contractStatusDisplay}\\n";
 
-                lblNoSelection.Visible = false;
-                pnlDetailContent.Visible = true;
+                if (assets.Count > 0)
+                {
+                    detail += $"\\n=== TÀI SẢN TRONG PHÒNG ({assets.Count}) ===\\n";
+                    foreach (var asset in assets)
+                    {
+                        detail += $"• {asset.TenTaiSan} - SL: {asset.SoLuong} - Tình trạng: {asset.TinhTrang}\\n";
+                        if (!string.IsNullOrEmpty(asset.GhiChu))
+                            detail += $"  Ghi chú: {asset.GhiChu}\\n";
+                    }
+                }
+
+                MessageBox.Show(detail, "Chi tiết phòng", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                UIHelper.ShowError($"Lỗi tải chi tiết: {ex.Message}");
-            }
-        }
-
-        private Panel CreateInfoBlock(string title, InfoItem[] items, int x, int y)
-        {
-            int blockWidth = 500;
-            if (pnlDetailContent.ClientSize.Width > 100)
-            {
-                blockWidth = pnlDetailContent.ClientSize.Width - pnlDetailContent.Padding.Left - pnlDetailContent.Padding.Right - 20;
-            }
-
-            var block = new Panel
-            {
-                Location = new Point(x, y),
-                Width = blockWidth,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                BackColor = ColorTranslator.FromHtml("#F9FAFB"),
-                Padding = new Padding(20),
-                AutoSize = false
-            };
-
-            int blockY = 0;
-
-            var lblTitle = new Label
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = ColorTranslator.FromHtml("#1F2937"),
-                AutoSize = true,
-                Location = new Point(0, blockY)
-            };
-            block.Controls.Add(lblTitle);
-            blockY += 35;
-
-            foreach (var item in items)
-            {
-                var lblLabel = new Label
-                {
-                    Text = item.Label + ":",
-                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                    ForeColor = ColorTranslator.FromHtml("#6B7280"),
-                    AutoSize = false,
-                    Width = 180,
-                    Height = 22,
-                    Location = new Point(0, blockY),
-                    TextAlign = ContentAlignment.MiddleLeft
-                };
-
-                var lblValue = new Label
-                {
-                    Text = item.Value,
-                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                    ForeColor = ColorTranslator.FromHtml("#1F2937"),
-                    AutoSize = false,
-                    Width = blockWidth - 240,
-                    Height = 22,
-                    Location = new Point(200, blockY),
-                    TextAlign = ContentAlignment.MiddleLeft,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-                };
-
-                block.Controls.Add(lblLabel);
-                block.Controls.Add(lblValue);
-                blockY += 30;
-            }
-
-            block.Height = blockY + 20;
-
-            return block;
-        }
-
-        private struct InfoItem
-        {
-            public string Label;
-            public string Value;
-
-            public InfoItem(string label, string value)
-            {
-                Label = label;
-                Value = value;
+                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

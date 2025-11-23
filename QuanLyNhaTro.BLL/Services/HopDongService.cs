@@ -152,6 +152,43 @@ namespace QuanLyNhaTro.BLL.Services
             return (result, result ? "Thanh lý hợp đồng thành công!" : "Thanh lý thất bại!");
         }
 
+        /// <summary>
+        /// Xóa hợp đồng hết hạn (chỉ xóa hợp đồng Expired, không có hóa đơn chưa thanh toán)
+        /// </summary>
+        public async Task<(bool Success, string Message)> DeleteExpiredAsync(int hopDongId)
+        {
+            var hopDong = await _repo.GetByIdAsync(hopDongId);
+            if (hopDong == null)
+                return (false, "Không tìm thấy hợp đồng!");
+
+            if (hopDong.TrangThai != "Expired")
+                return (false, "Chỉ có thể xóa hợp đồng đã hết hạn!");
+
+            // Kiểm tra xem còn hóa đơn KHÔNG (dù đã thanh toán hay chưa)
+            var allInvoices = await _hoaDonRepo.GetByHopDongAsync(hopDong.HopDongId);
+            var invoiceCount = allInvoices.Count();
+            
+            if (invoiceCount > 0)
+                return (false, $"Không thể xóa hợp đồng vì còn {invoiceCount} hóa đơn liên quan!\n\nVui lòng xóa tất cả hóa đơn trước khi xóa hợp đồng.");
+
+            try
+            {
+                var result = await _repo.DeleteAsync(hopDongId);
+                
+                if (result)
+                {
+                    await _logRepo.LogAsync(AuthService.CurrentUser?.UserId, "HOPDONG", hopDong.MaHopDong, "DELETE",
+                        duLieuCu: hopDong, moTa: $"Xóa hợp đồng hết hạn {hopDong.MaHopDong}");
+                }
+
+                return (result, result ? "Xóa hợp đồng thành công!" : "Xóa hợp đồng thất bại!");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi xóa hợp đồng: {ex.Message}");
+            }
+        }
+
         public async Task<string> GenerateMaHopDongAsync()
         {
             return await _repo.GenerateMaHopDongAsync();

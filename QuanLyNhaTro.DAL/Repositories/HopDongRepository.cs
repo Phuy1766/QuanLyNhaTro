@@ -252,5 +252,14 @@ namespace QuanLyNhaTro.DAL.Repositories
                 ORDER BY hd.NgayBatDau DESC";
             return await conn.QueryAsync<HopDong>(sql, new { UserId = userId });
         }
+
+        /// <summary>
+        /// Override Delete để xóa cứng (HOPDONG không có IsActive)
+        /// </summary>
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            // Sử dụng HardDeleteAsync vì HOPDONG không có cột IsActive
+            return await HardDeleteAsync(id);
+        }
     }
 }

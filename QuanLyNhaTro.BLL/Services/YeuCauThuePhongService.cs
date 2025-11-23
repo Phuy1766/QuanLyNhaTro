@@ -116,7 +116,7 @@ namespace QuanLyNhaTro.BLL.Services
                 return (false, $"Không thể hủy yêu cầu ở trạng thái {yeuCau.TrangThai}!");
 
             // Cập nhật trạng thái (thêm vào DB nếu chưa có logic hủy)
-            var result = true; // TODO: Thêm method UpdateStatusAsync
+                var result = await _repo.UpdateStatusAsync(maYeuCau, "Cancelled");
 
             if (result)
             {
@@ -167,16 +167,17 @@ namespace QuanLyNhaTro.BLL.Services
         /// (Chạy hàng ngày bằng Scheduler)
         /// ✅ FIX 5.1: Tự động hủy yêu cầu pending thanh toán quá 24 giờ
         /// </summary>
-        public async Task<(int Canceled, string Message)> AutoCancelExpiredRequestsAsync()
+            public async Task<(int Canceled, string Message)> AutoCancelExpiredRequestsAsync()
         {
-            // TODO: Implement stored procedure sp_AutoCancelExpiredBookingRequests
-            // Hoặc query từ code
-            
             int canceledCount = 0;
             
             // Lấy các yêu cầu pending payment quá 24 giờ
-            // var expiredRequests = await _repo.GetExpiredRequestsAsync();
-            // foreach (var req in expiredRequests) { await CancelAsync(req.MaYeuCau, req.MaTenant); canceledCount++; }
+                var expiredRequests = await _repo.GetExpiredRequestsAsync();
+                foreach (var req in expiredRequests) 
+                { 
+                    var (success, _) = await CancelAsync(req.MaYeuCau, req.MaTenant);
+                    if (success) canceledCount++;
+                }
             
             return (canceledCount, $"Đã hủy {canceledCount} yêu cầu hết hạn");
         }

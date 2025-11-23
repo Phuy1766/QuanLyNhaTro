@@ -45,18 +45,27 @@ namespace QuanLyNhaTro.BLL.Services
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return (false, "Vui lòng nhập tên đăng nhập và mật khẩu!");
 
-            var passwordHash = PasswordHelper.HashPassword(password);
-            var user = await _userRepo.LoginAsync(username, passwordHash);
-
+            // Lấy user theo username và verify password (hỗ trợ migration legacy SHA256 -> PBKDF2)
+            var user = await _userRepo.GetByUsernameAsync(username);
             if (user == null)
-            {
-                // Kiểm tra username có tồn tại không
-                var existUser = await _userRepo.GetByUsernameAsync(username);
-                if (existUser == null)
-                    return (false, "Tên đăng nhập không tồn tại!");
-                if (!existUser.IsActive)
-                    return (false, "Tài khoản đã bị khóa!");
+                return (false, "Tên đăng nhập không tồn tại!");
+            if (!user.IsActive)
+                return (false, "Tài khoản đã bị khóa!");
+
+            // Verify mật khẩu (hàm sẽ hỗ trợ cả format legacy và PBKDF2)
+            var verified = PasswordHelper.VerifyPassword(password, user.PasswordHash);
+            if (!verified)
                 return (false, "Mật khẩu không đúng!");
+
+            // Nếu là legacy hash (SHA256), migrate lên PBKDF2 ngay lập tức
+            if (PasswordHelper.IsLegacyHash(user.PasswordHash))
+            {
+                var newHash = PasswordHelper.HashPassword(password);
+                var changed = await _userRepo.ChangePasswordAsync(user.UserId, newHash);
+                if (changed)
+                {
+                    user.PasswordHash = newHash;
+                }
             }
 
             CurrentUser = user;
@@ -101,10 +110,9 @@ namespace QuanLyNhaTro.BLL.Services
             if (newPassword != confirmPassword)
                 return (false, "Mật khẩu xác nhận không khớp!");
 
-            // Verify old password
-            var oldHash = PasswordHelper.HashPassword(oldPassword);
-            if (oldHash != CurrentUser.PasswordHash)
-                return (false, "Mật khẩu cũ không đúng!");
+            // Verify old password (hỗ trợ legacy)
+            var okOld = PasswordHelper.VerifyPassword(oldPassword, CurrentUser.PasswordHash);
+            if (!okOld) return (false, "Mật khẩu cũ không đúng!");
 
             var newHash = PasswordHelper.HashPassword(newPassword);
             var result = await _userRepo.ChangePasswordAsync(CurrentUser.UserId, newHash);

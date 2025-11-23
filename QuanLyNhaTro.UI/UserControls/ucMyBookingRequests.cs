@@ -11,19 +11,19 @@ namespace QuanLyNhaTro.UI.UserControls
 {
     public partial class ucMyBookingRequests : UserControl
     {
-        private DataGridView dgvRequests;
-        private Panel pnlDetail;
-        private Panel pnlDetailContent;
-        private Label lblNoSelection;
-        private Panel pnlActions;
-        private Button btnPayDeposit;
-        private Button btnCancelRequest;
-        private Button btnViewContract;
+           private DataGridView dgvRequests = null!;
+           private Panel pnlDetail = null!;
+           private Panel pnlDetailContent = null!;
+           private Label lblNoSelection = null!;
+           private Panel pnlActions = null!;
+           private Button btnPayDeposit = null!;
+           private Button btnCancelRequest = null!;
+           private Button btnViewContract = null!;
 
         private YeuCauThuePhongRepository _requestRepo;
         private PaymentRepository _paymentRepo;
         private int _currentTenantId;
-        private YeuCauThuePhong _selectedRequest;
+           private YeuCauThuePhong? _selectedRequest;
 
         public ucMyBookingRequests(int userId)
         {
@@ -180,7 +180,7 @@ namespace QuanLyNhaTro.UI.UserControls
         {
             if (dgvRequests.Columns[e.ColumnIndex].Name == "TrangThai" && e.Value != null)
             {
-                string status = e.Value.ToString();
+                    string status = e.Value.ToString() ?? "";
                 e.Value = GetStatusDisplayText(status);
                 e.CellStyle.ForeColor = GetStatusColor(status);
             }
