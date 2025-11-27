@@ -20,12 +20,45 @@ namespace QuanLyNhaTro.DAL.Repositories
                 GhiChu = @GhiChu, UpdatedAt = GETDATE()
             WHERE HoaDonId = @HoaDonId";
 
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            using var conn = GetConnection();
+            await conn.OpenAsync();
+            using var trans = conn.BeginTransaction();
+
+            try
+            {
+                // Delete related invoice details (hard delete since details table doesn't support IsActive)
+                await conn.ExecuteAsync("DELETE FROM CHITIETHOADON WHERE HoaDonId = @Id", new { Id = id }, trans);
+
+                // Soft delete invoice (set IsActive = 0) if column exists, otherwise hard-delete
+                var hasIsActive = await ColumnExistsAsync("IsActive");
+                int result;
+                if (hasIsActive)
+                {
+                    result = await conn.ExecuteAsync("UPDATE HOADON SET IsActive = 0, UpdatedAt = GETDATE() WHERE HoaDonId = @Id", new { Id = id }, trans);
+                }
+                else
+                {
+                    result = await conn.ExecuteAsync("DELETE FROM HOADON WHERE HoaDonId = @Id", new { Id = id }, trans);
+                }
+                trans.Commit();
+                return result > 0;
+            }
+            catch
+            {
+                trans.Rollback();
+                throw;
+            }
+        }
+
         /// <summary>
         /// Lấy danh sách hóa đơn với đầy đủ thông tin
         /// </summary>
         public async Task<IEnumerable<HoaDon>> GetAllWithDetailsAsync(string? trangThai = null, int? year = null, int? month = null)
         {
             using var conn = GetConnection();
+            var hasIsActive = await ColumnExistsAsync("IsActive");
             var sql = @"
                 SELECT hd.*, p.MaPhong, b.BuildingName, k.HoTen AS TenKhachThue, k.Email, hp.MaHopDong
                 FROM HOADON hd
@@ -33,7 +66,8 @@ namespace QuanLyNhaTro.DAL.Repositories
                 JOIN PHONGTRO p ON hp.PhongId = p.PhongId
                 JOIN BUILDING b ON p.BuildingId = b.BuildingId
                 JOIN KHACHTHUE k ON hp.KhachId = k.KhachId
-                WHERE (@TrangThai IS NULL OR hd.TrangThai = @TrangThai)
+                                WHERE 1=1 " + (hasIsActive ? "AND hd.IsActive = 1" : "") + @"
+                                    AND (@TrangThai IS NULL OR hd.TrangThai = @TrangThai)
                   AND (@Year IS NULL OR YEAR(hd.ThangNam) = @Year)
                   AND (@Month IS NULL OR MONTH(hd.ThangNam) = @Month)
                 ORDER BY hd.ThangNam DESC, p.MaPhong";
@@ -48,6 +82,7 @@ namespace QuanLyNhaTro.DAL.Repositories
             using var conn = GetConnection();
 
             // Lấy thông tin hóa đơn
+            var hasIsActive = await ColumnExistsAsync("IsActive");
             var sql = @"
                 SELECT hd.*, p.MaPhong, b.BuildingName, k.HoTen AS TenKhachThue, k.Email, hp.MaHopDong
                 FROM HOADON hd
@@ -55,7 +90,7 @@ namespace QuanLyNhaTro.DAL.Repositories
                 JOIN PHONGTRO p ON hp.PhongId = p.PhongId
                 JOIN BUILDING b ON p.BuildingId = b.BuildingId
                 JOIN KHACHTHUE k ON hp.KhachId = k.KhachId
-                WHERE hd.HoaDonId = @HoaDonId";
+                WHERE hd.HoaDonId = @HoaDonId " + (hasIsActive ? "AND hd.IsActive = 1" : "") + "";
             var hoaDon = await conn.QueryFirstOrDefaultAsync<HoaDon>(sql, new { HoaDonId = hoaDonId });
 
             if (hoaDon != null)
@@ -86,6 +121,7 @@ namespace QuanLyNhaTro.DAL.Repositories
         public async Task<IEnumerable<HoaDon>> GetOverdueAsync()
         {
             using var conn = GetConnection();
+            var hasIsActive = await ColumnExistsAsync("IsActive");
             var sql = @"
                 SELECT hd.*, p.MaPhong, b.BuildingName, k.HoTen AS TenKhachThue, k.Email
                 FROM HOADON hd
@@ -93,7 +129,7 @@ namespace QuanLyNhaTro.DAL.Repositories
                 JOIN PHONGTRO p ON hp.PhongId = p.PhongId
                 JOIN BUILDING b ON p.BuildingId = b.BuildingId
                 JOIN KHACHTHUE k ON hp.KhachId = k.KhachId
-                WHERE hd.TrangThai = N'ChuaThanhToan' AND hd.NgayHetHan < GETDATE()
+                WHERE hd.TrangThai = N'ChuaThanhToan' AND hd.NgayHetHan < GETDATE() " + (hasIsActive ? "AND hd.IsActive = 1" : "") + @"
                 ORDER BY hd.NgayHetHan";
             return await conn.QueryAsync<HoaDon>(sql);
         }
@@ -104,7 +140,10 @@ namespace QuanLyNhaTro.DAL.Repositories
         public async Task<IEnumerable<HoaDon>> GetByHopDongAsync(int hopDongId)
         {
             using var conn = GetConnection();
-            var sql = "SELECT * FROM HOADON WHERE HopDongId = @HopDongId ORDER BY ThangNam DESC";
+            var hasIsActive = await ColumnExistsAsync("IsActive");
+            var sql = hasIsActive
+                ? "SELECT * FROM HOADON WHERE HopDongId = @HopDongId AND IsActive = 1 ORDER BY ThangNam DESC"
+                : "SELECT * FROM HOADON WHERE HopDongId = @HopDongId ORDER BY ThangNam DESC";
             return await conn.QueryAsync<HoaDon>(sql, new { HopDongId = hopDongId });
         }
 
@@ -199,11 +238,28 @@ namespace QuanLyNhaTro.DAL.Repositories
         public async Task<bool> ExistsForMonthAsync(int hopDongId, DateTime thangNam)
         {
             using var conn = GetConnection();
+            var hasIsActive = await ColumnExistsAsync("IsActive");
             var sql = @"SELECT COUNT(1) FROM HOADON
                         WHERE HopDongId = @HopDongId
                           AND YEAR(ThangNam) = YEAR(@ThangNam)
-                          AND MONTH(ThangNam) = MONTH(@ThangNam)";
+                          AND MONTH(ThangNam) = MONTH(@ThangNam) " + (hasIsActive ? "AND IsActive = 1" : "") + ";";
             return await conn.ExecuteScalarAsync<int>(sql, new { HopDongId = hopDongId, ThangNam = thangNam }) > 0;
+        }
+
+        /// <summary>
+        /// Lấy tất cả hóa đơn theo hợp đồng và tháng (có thể bao gồm inactive)
+        /// </summary>
+        public async Task<IEnumerable<HoaDon>> GetByHopDongAndMonthAsync(int hopDongId, DateTime thangNam, bool includeInactive = false)
+        {
+            using var conn = GetConnection();
+            var sql = @"SELECT * FROM HOADON WHERE HopDongId = @HopDongId AND YEAR(ThangNam) = YEAR(@ThangNam) AND MONTH(ThangNam) = MONTH(@ThangNam)";
+            if (!includeInactive)
+            {
+                var hasIsActive = await ColumnExistsAsync("IsActive");
+                if (hasIsActive) sql += " AND IsActive = 1";
+            }
+            sql += " ORDER BY ThangNam DESC";
+            return await conn.QueryAsync<HoaDon>(sql, new { HopDongId = hopDongId, ThangNam = thangNam });
         }
 
         /// <summary>
@@ -240,7 +296,7 @@ namespace QuanLyNhaTro.DAL.Repositories
                 JOIN HOPDONG hp ON hd.HopDongId = hp.HopDongId
                 JOIN PHONGTRO p ON hp.PhongId = p.PhongId
                 JOIN KHACHTHUE k ON hp.KhachId = k.KhachId
-                WHERE hp.MaHopDong = @MaHopDong
+                WHERE hp.MaHopDong = @MaHopDong " + (await ColumnExistsAsync("IsActive") ? "AND hd.IsActive = 1" : "") + @"
                 ORDER BY hd.ThangNam DESC";
             return await conn.QueryAsync<HoaDon>(sql, new { MaHopDong = maHopDong });
         }

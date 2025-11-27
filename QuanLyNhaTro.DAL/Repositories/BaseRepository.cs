@@ -12,12 +12,24 @@ namespace QuanLyNhaTro.DAL.Repositories
         protected SqlConnection GetConnection() => DatabaseHelper.CreateConnection();
 
         /// <summary>
+        /// Check if a column exists in the table
+        /// </summary>
+        protected async Task<bool> ColumnExistsAsync(string columnName)
+        {
+            using var conn = GetConnection();
+            var sql = @"SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID(@TableName) AND name = @ColumnName";
+            var count = await conn.ExecuteScalarAsync<int>(sql, new { TableName = "dbo." + GetTableName(), ColumnName = columnName });
+            return count > 0;
+        }
+
+        /// <summary>
         /// Lấy tất cả records
         /// </summary>
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
             using var conn = GetConnection();
-            var sql = $"SELECT * FROM {GetTableName()} WHERE IsActive = 1";
+            var hasIsActive = await ColumnExistsAsync("IsActive");
+            var sql = hasIsActive ? $"SELECT * FROM {GetTableName()} WHERE IsActive = 1" : $"SELECT * FROM {GetTableName()}";
             return await conn.QueryAsync<T>(sql);
         }
 
@@ -27,7 +39,8 @@ namespace QuanLyNhaTro.DAL.Repositories
         public virtual async Task<T?> GetByIdAsync(int id)
         {
             using var conn = GetConnection();
-            var sql = $"SELECT * FROM {GetTableName()} WHERE {GetPrimaryKey()} = @Id";
+            var hasIsActive = await ColumnExistsAsync("IsActive");
+            var sql = hasIsActive ? $"SELECT * FROM {GetTableName()} WHERE {GetPrimaryKey()} = @Id AND IsActive = 1" : $"SELECT * FROM {GetTableName()} WHERE {GetPrimaryKey()} = @Id";
             return await conn.QueryFirstOrDefaultAsync<T>(sql, new { Id = id });
         }
 
@@ -58,6 +71,11 @@ namespace QuanLyNhaTro.DAL.Repositories
         public virtual async Task<bool> DeleteAsync(int id)
         {
             using var conn = GetConnection();
+            // If database doesn't have IsActive column, perform hard delete
+            var hasIsActive = await ColumnExistsAsync("IsActive");
+            if (!hasIsActive)
+                return await HardDeleteAsync(id);
+
             var sql = $"UPDATE {GetTableName()} SET IsActive = 0, UpdatedAt = GETDATE() WHERE {GetPrimaryKey()} = @Id";
             var result = await conn.ExecuteAsync(sql, new { Id = id });
             return result > 0;
@@ -80,7 +98,8 @@ namespace QuanLyNhaTro.DAL.Repositories
         public virtual async Task<int> CountAsync()
         {
             using var conn = GetConnection();
-            var sql = $"SELECT COUNT(*) FROM {GetTableName()} WHERE IsActive = 1";
+            var hasIsActive2 = await ColumnExistsAsync("IsActive");
+            var sql = hasIsActive2 ? $"SELECT COUNT(*) FROM {GetTableName()} WHERE IsActive = 1" : $"SELECT COUNT(*) FROM {GetTableName()}";
             return await conn.ExecuteScalarAsync<int>(sql);
         }
 

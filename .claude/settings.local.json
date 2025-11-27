@@ -11,7 +11,11 @@
       "Bash(sqlcmd:*)",
       "Bash(Select-String -Pattern \"(error|warning)\")",
       "Bash(Get-Process -Name \"QuanLyNhaTro.UI\" -ErrorAction SilentlyContinue)",
-      "Bash(Stop-Process -Force)"
+      "Bash(Stop-Process -Force)",
+      "Bash(Start-Process \"QuanLyNhaTro.UI/bin/Debug/net8.0-windows/QuanLyNhaTro.UI.exe\")",
+      "Bash(start QuanLyNhaTro.UI.exe)",
+      "Bash(start QuanLyNhaTro.UI/bin/Debug/net8.0-windows/QuanLyNhaTro.UI.exe)",
+      "Bash(Select-String -Pattern \"(error|warning CS0414)\")"
     ],
     "deny": [],
     "ask": []

@@ -14,9 +14,8 @@ namespace QuanLyNhaTro.UI.UserControls
         private readonly int _tenantUserId;
 
         private ModernDataGrid dgvInvoices = null!;
-        private Label lblSummary = null!;
         private Label lblEmptyMessage = null!;
-            private Panel pnlMainCard = null!;
+        private Panel pnlMainCard = null!;
 
         public ucMyInvoice(int tenantUserId)
         {
@@ -28,56 +27,122 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private void BuildModernUI()
         {
-            this.BackColor = Color.FromArgb(245, 246, 250);
-            this.Padding = new Padding(20);
+            this.BackColor = Color.FromArgb(247, 249, 252);
+            this.Padding = new Padding(24);
 
-            // Card chính
-            pnlMainCard = new Panel
+            // Container chính
+            var pnlContainer = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(30),
-                BorderStyle = BorderStyle.None
+                BackColor = Color.Transparent
             };
-            UIHelper.ApplyCardShadow(pnlMainCard);
 
-            // Header
-            var pnlHeader = new Panel { Height = 80, Dock = DockStyle.Top };
+            // ===== TIÊU ĐỀ TRANG =====
+            var pnlTitleSection = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 50,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 0, 0, 12)
+            };
+
             var lblIcon = new Label
             {
-                Text = "Hóa đơn",
-                Font = new Font("Segoe UI", 32F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 122, 255),
-                Location = new Point(0, 15),
+                Text = "💰",
+                Font = new Font("Segoe UI", 20F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 136, 229),
+                Location = new Point(0, 8),
                 AutoSize = true
             };
+
             var lblTitle = new Label
             {
                 Text = "Hóa đơn của tôi",
                 Font = new Font("Segoe UI Semibold", 24F),
-                ForeColor = Color.FromArgb(52, 58, 64),
-                Location = new Point(80, 22),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(45, 6),
                 AutoSize = true
             };
-            pnlHeader.Controls.AddRange(new Control[] { lblIcon, lblTitle });
 
-            // Summary
-            var pnlSummary = new Panel
+            pnlTitleSection.Controls.AddRange(new Control[] { lblIcon, lblTitle });
+
+            // ===== INFO SUMMARY CARDS - RESPONSIVE GRID =====
+            var pnlCardsContainer = new TableLayoutPanel
             {
-                Height = 70,
                 Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(0, 122, 255)
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.Transparent,
+                ColumnCount = 4,
+                RowCount = 1,
+                Padding = new Padding(0, 0, 0, 20),
+                Margin = new Padding(0)
             };
-            lblSummary = new Label
+
+            // Thiết lập các cột co giãn đều - QUAN TRỌNG: SizeType.Percent
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            // Card 1: Tổng số hóa đơn
+            var card1 = CreateInfoCard("📋", "Tổng hóa đơn", "0", Color.FromArgb(30, 136, 229));
+            card1.Tag = "total_invoices";
+            card1.Margin = new Padding(0, 0, 8, 0);
+            card1.Dock = DockStyle.Fill;
+
+            // Card 2: Chưa thanh toán
+            var card2 = CreateInfoCard("⏳", "Chưa thanh toán", "0", Color.FromArgb(255, 193, 7));
+            card2.Tag = "unpaid_count";
+            card2.Margin = new Padding(4, 0, 4, 0);
+            card2.Dock = DockStyle.Fill;
+
+            // Card 3: Tổng công nợ
+            var card3 = CreateInfoCard("💳", "Tổng công nợ", "0đ", Color.FromArgb(220, 53, 69));
+            card3.Tag = "total_debt";
+            card3.Margin = new Padding(4, 0, 4, 0);
+            card3.Dock = DockStyle.Fill;
+
+            // Card 4: Sắp đến hạn
+            var card4 = CreateInfoCard("⚠", "Sắp đến hạn", "0", Color.FromArgb(255, 152, 0));
+            card4.Tag = "upcoming";
+            card4.Margin = new Padding(8, 0, 0, 0);
+            card4.Dock = DockStyle.Fill;
+
+            pnlCardsContainer.Controls.Add(card1, 0, 0);
+            pnlCardsContainer.Controls.Add(card2, 1, 0);
+            pnlCardsContainer.Controls.Add(card3, 2, 0);
+            pnlCardsContainer.Controls.Add(card4, 3, 0);
+
+            // ===== TIÊU ĐỀ BẢNG =====
+            var pnlTableTitle = new Panel
             {
-                Text = "Đang tải dữ liệu...",
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                ForeColor = Color.White,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(30, 0, 0, 0)
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 8)
             };
-            pnlSummary.Controls.Add(lblSummary);
+
+            var lblTableTitle = new Label
+            {
+                Text = "Danh sách hóa đơn của tôi",
+                Font = new Font("Segoe UI Semibold", 14F),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlTableTitle.Controls.Add(lblTableTitle);
+
+            // ===== BẢNG DỮ LIỆU - TÁCH RIÊNG, KHÔNG TRONG CARD =====
+            pnlMainCard = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                BorderStyle = BorderStyle.FixedSingle
+            };
 
             // DataGrid
             dgvInvoices = new ModernDataGrid
@@ -91,21 +156,23 @@ namespace QuanLyNhaTro.UI.UserControls
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 EnableHeadersVisualStyles = false,
-                ColumnHeadersHeight = 56,
+                ColumnHeadersHeight = 50,
+                RowTemplate = { Height = 48 },
                 ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
                 {
-                    BackColor = Color.FromArgb(52, 58, 64),
+                    BackColor = Color.FromArgb(30, 136, 229),
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI Semibold", 11F),
-                    Alignment = DataGridViewContentAlignment.MiddleLeft,
-                    Padding = new Padding(16, 0, 0, 0)
+                    Font = new Font("Segoe UI Semibold", 10.5F),
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Padding = new Padding(10, 0, 10, 0)
                 },
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
-                    Padding = new Padding(16, 12, 16, 12),
-                    Font = new Font("Segoe UI", 11F),
-                    SelectionBackColor = Color.FromArgb(0, 122, 255),   // ĐÃ SỬA
-                    SelectionForeColor = Color.White
+                    Padding = new Padding(12, 8, 12, 8),
+                    Font = new Font("Segoe UI", 10F),
+                    SelectionBackColor = Color.FromArgb(30, 136, 229),
+                    SelectionForeColor = Color.White,
+                    Alignment = DataGridViewContentAlignment.MiddleCenter
                 },
                 AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
                 {
@@ -117,7 +184,7 @@ namespace QuanLyNhaTro.UI.UserControls
             dgvInvoices.CellMouseEnter += (s, e) =>
             {
                 if (e.RowIndex >= 0)
-                    dgvInvoices.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(240, 248, 255);
+                    dgvInvoices.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(225, 242, 255);
             };
             dgvInvoices.CellMouseLeave += (s, e) =>
             {
@@ -127,27 +194,28 @@ namespace QuanLyNhaTro.UI.UserControls
             };
 
             // Cột
-            UIHelper.AddColumn(dgvInvoices, "MaHoaDon", "Mã hóa đơn", "MaHoaDon", 100);
-            UIHelper.AddColumn(dgvInvoices, "ThangNam", "Tháng", "ThangNam", 110);
-            UIHelper.AddColumn(dgvInvoices, "TongCong", "Tổng tiền", "TongCong", 140);
-            UIHelper.AddColumn(dgvInvoices, "DaThanhToan", "Đã TT", "DaThanhToan", 130);
-            UIHelper.AddColumn(dgvInvoices, "ConNo", "Còn nợ", "ConNo", 130);
+            UIHelper.AddColumn(dgvInvoices, "MaHoaDon", "Mã HĐ", "MaHoaDon", 100);
+            UIHelper.AddColumn(dgvInvoices, "ThangNam", "Tháng", "ThangNam", 100);
+            UIHelper.AddColumn(dgvInvoices, "TongCong", "Tổng tiền", "TongCong", 130);
+            UIHelper.AddColumn(dgvInvoices, "DaThanhToan", "Đã TT", "DaThanhToan", 120);
+            UIHelper.AddColumn(dgvInvoices, "ConNo", "Còn nợ", "ConNo", 120);
             UIHelper.AddColumn(dgvInvoices, "TrangThai", "Trạng thái", "TrangThai", 130);
-            UIHelper.AddColumn(dgvInvoices, "NgayHetHan", "Hạn TT", "NgayHetHan", 140);
+            UIHelper.AddColumn(dgvInvoices, "NgayHetHan", "Hạn TT", "NgayHetHan", 120);
 
             var btnDetail = new DataGridViewButtonColumn
             {
                 Name = "btnDetail",
                 HeaderText = "Chi tiết",
-                Text = "Xem chi tiết",
+                Text = "Xem",
                 UseColumnTextForButtonValue = true,
-                Width = 120,
+                Width = 90,
                 FlatStyle = FlatStyle.Flat,
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
-                    BackColor = Color.FromArgb(0, 122, 255),
+                    BackColor = Color.FromArgb(30, 136, 229),
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+                    Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    Padding = new Padding(8, 4, 8, 4)
                 }
             };
             dgvInvoices.Columns.Add(btnDetail);
@@ -158,13 +226,14 @@ namespace QuanLyNhaTro.UI.UserControls
                 HeaderText = "Thanh toán",
                 Text = "Thanh toán",
                 UseColumnTextForButtonValue = false,
-                Width = 120,
+                Width = 110,
                 FlatStyle = FlatStyle.Flat,
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
                     BackColor = Color.FromArgb(40, 167, 69),
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+                    Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    Padding = new Padding(8, 4, 8, 4)
                 }
             };
             dgvInvoices.Columns.Add(btnPayment);
@@ -174,7 +243,7 @@ namespace QuanLyNhaTro.UI.UserControls
             // Empty message
             lblEmptyMessage = new Label
             {
-                Font = new Font("Segoe UI", 16F),
+                Font = new Font("Segoe UI", 14F),
                 ForeColor = Color.FromArgb(149, 165, 166),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Fill,
@@ -182,8 +251,98 @@ namespace QuanLyNhaTro.UI.UserControls
             };
 
             // Layout
-            pnlMainCard.Controls.AddRange(new Control[] { dgvInvoices, lblEmptyMessage, pnlSummary, pnlHeader });
-            this.Controls.Add(pnlMainCard);
+            pnlMainCard.Controls.AddRange(new Control[] { dgvInvoices, lblEmptyMessage });
+
+            // Thêm các controls theo thứ tự dock (bottom to top)
+            pnlContainer.Controls.Add(pnlMainCard);        // Dock.Fill - chiếm phần còn lại
+            pnlContainer.Controls.Add(pnlTableTitle);      // Dock.Top
+            pnlContainer.Controls.Add(pnlCardsContainer);  // Dock.Top
+            pnlContainer.Controls.Add(pnlTitleSection);    // Dock.Top
+
+            this.Controls.Add(pnlContainer);
+        }
+
+        private Panel CreateInfoCard(string icon, string title, string value, Color accentColor)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                MinimumSize = new Size(200, 84),
+                Height = 84
+            };
+            UIHelper.ApplyCardShadow(card);
+            UIHelper.RoundControl(card, 10);
+
+            // Icon
+            var lblIcon = new Label
+            {
+                Text = icon,
+                Font = new Font("Segoe UI", 28F),
+                ForeColor = accentColor,
+                Location = new Point(16, 20),
+                Size = new Size(50, 50),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+
+            // Title
+            var lblTitle = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(108, 117, 125),
+                Location = new Point(75, 22),
+                AutoSize = true
+            };
+
+            // Value
+            var lblValue = new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI Semibold", 18F),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(75, 40),
+                AutoSize = true,
+                Tag = "value"
+            };
+
+            card.Controls.AddRange(new Control[] { lblIcon, lblTitle, lblValue });
+            return card;
+        }
+
+        private void UpdateInfoCards(int totalInvoices, int unpaidCount, decimal totalDebt, int upcomingCount)
+        {
+            var container = this.Controls[0];
+            foreach (Control ctrl in container.Controls)
+            {
+                if (ctrl is TableLayoutPanel tlp)
+                {
+                    foreach (Control childCtrl in tlp.Controls)
+                    {
+                        if (childCtrl is Panel panel && panel.Controls.OfType<Label>().Any(l => l.Tag?.ToString() == "value"))
+                        {
+                            var valueLabel = panel.Controls.OfType<Label>().First(l => l.Tag?.ToString() == "value");
+
+                            switch (panel.Tag?.ToString())
+                            {
+                                case "total_invoices":
+                                    valueLabel.Text = totalInvoices.ToString();
+                                    break;
+                                case "unpaid_count":
+                                    valueLabel.Text = unpaidCount.ToString();
+                                    break;
+                                case "total_debt":
+                                    valueLabel.Text = $"{totalDebt:N0}đ";
+                                    valueLabel.Font = new Font("Segoe UI Semibold", 14F);
+                                    break;
+                                case "upcoming":
+                                    valueLabel.Text = upcomingCount.ToString();
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private async void LoadDataAsync()
@@ -193,8 +352,8 @@ namespace QuanLyNhaTro.UI.UserControls
                 var contract = await _hopDongRepo.GetActiveByUserIdAsync(_tenantUserId);
                 if (contract == null)
                 {
-                    lblSummary.Text = "Bạn chưa có hợp đồng thuê phòng";
                     ShowEmpty("Bạn chưa có hợp đồng thuê phòng.\n\nHãy đăng ký thuê phòng tại menu 'Tìm phòng trống'.");
+                    UpdateInfoCards(0, 0, 0, 0);
                     return;
                 }
 
@@ -202,17 +361,23 @@ namespace QuanLyNhaTro.UI.UserControls
 
                 if (list.Count == 0)
                 {
-                    lblSummary.Text = "Chưa có hóa đơn nào";
                     ShowEmpty("Chưa có hóa đơn nào được tạo.\n\nHóa đơn sẽ được tạo tự động hàng tháng.");
+                    UpdateInfoCards(0, 0, 0, 0);
                     return;
                 }
 
                 HideEmpty();
                 dgvInvoices.DataSource = list;
 
+                // Tính toán thống kê
                 var tongNo = list.Sum(x => x.ConNo);
                 var chuaTT = list.Count(x => x.TrangThai != "DaThanhToan");
-                lblSummary.Text = $"Tổng: {list.Count} hóa đơn • Chưa thanh toán: {chuaTT} • Tổng công nợ: {tongNo:N0} VNĐ";
+                var sapDenHan = list.Count(x => x.TrangThai != "DaThanhToan" &&
+                                               x.NgayHetHan >= DateTime.Now &&
+                                               x.NgayHetHan <= DateTime.Now.AddDays(7));
+
+                // Cập nhật Info Cards
+                UpdateInfoCards(list.Count, chuaTT, tongNo, sapDenHan);
 
                 // Format
                 foreach (DataGridViewColumn col in dgvInvoices.Columns)
@@ -340,20 +505,15 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private void ShowInvoiceDetail(HoaDon hd)
         {
-            var detail = $"Hóa đơn #{hd.MaHoaDon}\n" +
-                        $"Tháng: {hd.ThangNam:MM/yyyy}\n" +
-                        $"Phòng: {hd.MaPhong}\n\n" +
-                        $"Tiền phòng: {hd.GiaPhong:N0} VNĐ\n" +
-                        $"Tiền điện: {hd.TienDien:N0} VNĐ\n" +
-                        $"Tiền nước: {hd.TienNuoc:N0} VNĐ\n" +
-                        $"Dịch vụ khác: {hd.TienDichVu:N0} VNĐ\n\n" +
-                        $"Tổng cộng: {hd.TongCong:N0} VNĐ\n" +
-                        $"Đã thanh toán: {hd.DaThanhToan:N0} VNĐ\n" +
-                        $"Còn nợ: {hd.ConNo:N0} VNĐ\n\n" +
-                        $"Trạng thái: {GetTrangThaiDisplay(hd.TrangThai)}\n" +
-                        $"Hạn thanh toán: {hd.NgayHetHan:dd/MM/yyyy}";
-
-            MessageBox.Show(detail, "Chi tiết hóa đơn", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            try
+            {
+                var dialog = new Forms.InvoiceDetailDialog(hd);
+                dialog.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void ShowPaymentDialog(HoaDon hd)

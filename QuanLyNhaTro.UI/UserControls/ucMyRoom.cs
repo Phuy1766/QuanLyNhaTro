@@ -13,7 +13,6 @@ namespace QuanLyNhaTro.UI.UserControls
         private readonly int _tenantUserId;
 
         private ModernDataGrid dgvRooms = null!;
-        private Label lblSummary = null!;
         private Label lblEmptyMessage = null!;
         private Panel pnlMainCard = null!;
 
@@ -27,56 +26,122 @@ namespace QuanLyNhaTro.UI.UserControls
 
         private void BuildModernUI()
         {
-            this.BackColor = Color.FromArgb(245, 246, 250);
-            this.Padding = new Padding(20);
+            this.BackColor = Color.FromArgb(247, 249, 252);
+            this.Padding = new Padding(24);
 
-            // Card chính
-            pnlMainCard = new Panel
+            // Container chính
+            var pnlContainer = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(30),
-                BorderStyle = BorderStyle.None
+                BackColor = Color.Transparent
             };
-            UIHelper.ApplyCardShadow(pnlMainCard);
 
-            // Header
-            var pnlHeader = new Panel { Height = 80, Dock = DockStyle.Top };
+            // ===== TIÊU ĐỀ TRANG =====
+            var pnlTitleSection = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 50,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 0, 0, 12)
+            };
+
             var lblIcon = new Label
             {
                 Text = "🏠",
-                Font = new Font("Segoe UI", 32F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 122, 255),
-                Location = new Point(0, 15),
+                Font = new Font("Segoe UI", 20F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 136, 229),
+                Location = new Point(0, 8),
                 AutoSize = true
             };
+
             var lblTitle = new Label
             {
                 Text = "Phòng của tôi",
                 Font = new Font("Segoe UI Semibold", 24F),
-                ForeColor = Color.FromArgb(52, 58, 64),
-                Location = new Point(80, 22),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(45, 6),
                 AutoSize = true
             };
-            pnlHeader.Controls.AddRange(new Control[] { lblIcon, lblTitle });
 
-            // Summary
-            var pnlSummary = new Panel
+            pnlTitleSection.Controls.AddRange(new Control[] { lblIcon, lblTitle });
+
+            // ===== INFO SUMMARY CARDS - RESPONSIVE GRID =====
+            var pnlCardsContainer = new TableLayoutPanel
             {
-                Height = 70,
                 Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(0, 122, 255)
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.Transparent,
+                ColumnCount = 4,
+                RowCount = 1,
+                Padding = new Padding(0, 0, 0, 20),
+                Margin = new Padding(0)
             };
-            lblSummary = new Label
+
+            // Thiết lập các cột co giãn đều - QUAN TRỌNG: SizeType.Percent
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            pnlCardsContainer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            // Card 1: Số phòng đang thuê
+            var card1 = CreateInfoCard("📊", "Phòng đang thuê", "0", Color.FromArgb(30, 136, 229));
+            card1.Tag = "room_count";
+            card1.Margin = new Padding(0, 0, 8, 0);
+            card1.Dock = DockStyle.Fill;
+
+            // Card 2: Tòa nhà
+            var card2 = CreateInfoCard("🏢", "Tòa nhà", "---", Color.FromArgb(40, 167, 69));
+            card2.Tag = "building_name";
+            card2.Margin = new Padding(4, 0, 4, 0);
+            card2.Dock = DockStyle.Fill;
+
+            // Card 3: Giá thuê
+            var card3 = CreateInfoCard("💰", "Giá thuê", "---", Color.FromArgb(255, 152, 0));
+            card3.Tag = "gia_thue";
+            card3.Margin = new Padding(4, 0, 4, 0);
+            card3.Dock = DockStyle.Fill;
+
+            // Card 4: Trạng thái
+            var card4 = CreateInfoCard("✓", "Trạng thái HĐ", "---", Color.FromArgb(156, 39, 176));
+            card4.Tag = "trang_thai";
+            card4.Margin = new Padding(8, 0, 0, 0);
+            card4.Dock = DockStyle.Fill;
+
+            pnlCardsContainer.Controls.Add(card1, 0, 0);
+            pnlCardsContainer.Controls.Add(card2, 1, 0);
+            pnlCardsContainer.Controls.Add(card3, 2, 0);
+            pnlCardsContainer.Controls.Add(card4, 3, 0);
+
+            // ===== TIÊU ĐỀ BẢNG =====
+            var pnlTableTitle = new Panel
             {
-                Text = "Đang tải dữ liệu...",
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                ForeColor = Color.White,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(30, 0, 0, 0)
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 8)
             };
-            pnlSummary.Controls.Add(lblSummary);
+
+            var lblTableTitle = new Label
+            {
+                Text = "Danh sách phòng đang thuê",
+                Font = new Font("Segoe UI Semibold", 14F),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlTableTitle.Controls.Add(lblTableTitle);
+
+            // ===== BẢNG DỮ LIỆU - TÁCH RIÊNG, KHÔNG TRONG CARD =====
+            pnlMainCard = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                BorderStyle = BorderStyle.FixedSingle
+            };
 
             // DataGrid
             dgvRooms = new ModernDataGrid
@@ -90,21 +155,23 @@ namespace QuanLyNhaTro.UI.UserControls
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 EnableHeadersVisualStyles = false,
-                ColumnHeadersHeight = 56,
+                ColumnHeadersHeight = 50,
+                RowTemplate = { Height = 48 },
                 ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
                 {
-                    BackColor = Color.FromArgb(52, 58, 64),
+                    BackColor = Color.FromArgb(30, 136, 229),
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI Semibold", 11F),
-                    Alignment = DataGridViewContentAlignment.MiddleLeft,
-                    Padding = new Padding(16, 0, 0, 0)
+                    Font = new Font("Segoe UI Semibold", 10.5F),
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Padding = new Padding(10, 0, 10, 0)
                 },
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
-                    Padding = new Padding(16, 12, 16, 12),
-                    Font = new Font("Segoe UI", 11F),
-                    SelectionBackColor = Color.FromArgb(0, 122, 255),
-                    SelectionForeColor = Color.White
+                    Padding = new Padding(12, 8, 12, 8),
+                    Font = new Font("Segoe UI", 10F),
+                    SelectionBackColor = Color.FromArgb(30, 136, 229),
+                    SelectionForeColor = Color.White,
+                    Alignment = DataGridViewContentAlignment.MiddleCenter
                 },
                 AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
                 {
@@ -116,7 +183,7 @@ namespace QuanLyNhaTro.UI.UserControls
             dgvRooms.CellMouseEnter += (s, e) =>
             {
                 if (e.RowIndex >= 0)
-                    dgvRooms.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(240, 248, 255);
+                    dgvRooms.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.FromArgb(225, 242, 255);
             };
             dgvRooms.CellMouseLeave += (s, e) =>
             {
@@ -126,26 +193,27 @@ namespace QuanLyNhaTro.UI.UserControls
             };
 
             // Cột
-            UIHelper.AddColumn(dgvRooms, "MaPhong", "Mã phòng", "MaPhong", 110);
-            UIHelper.AddColumn(dgvRooms, "BuildingName", "Tòa nhà", "BuildingName", 150);
-            UIHelper.AddColumn(dgvRooms, "NgayBatDau", "Từ ngày", "NgayBatDau", 120);
-            UIHelper.AddColumn(dgvRooms, "NgayKetThuc", "Đến ngày", "NgayKetThuc", 120);
-            UIHelper.AddColumn(dgvRooms, "GiaThue", "Giá thuê", "GiaThue", 130);
+            UIHelper.AddColumn(dgvRooms, "MaPhong", "Mã phòng", "MaPhong", 120);
+            UIHelper.AddColumn(dgvRooms, "BuildingName", "Tòa nhà", "BuildingName", 180);
+            UIHelper.AddColumn(dgvRooms, "NgayBatDau", "Từ ngày", "NgayBatDau", 130);
+            UIHelper.AddColumn(dgvRooms, "NgayKetThuc", "Đến ngày", "NgayKetThuc", 130);
+            UIHelper.AddColumn(dgvRooms, "GiaThue", "Giá thuê (VNĐ)", "GiaThue", 150);
             UIHelper.AddColumn(dgvRooms, "TrangThaiHopDong", "Trạng thái", "TrangThaiHopDong", 150);
 
             var btnDetail = new DataGridViewButtonColumn
             {
                 Name = "btnDetail",
                 HeaderText = "Chi tiết",
-                Text = "Xem chi tiết",
+                Text = "Xem",
                 UseColumnTextForButtonValue = true,
-                Width = 120,
+                Width = 100,
                 FlatStyle = FlatStyle.Flat,
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
-                    BackColor = Color.FromArgb(0, 122, 255),
+                    BackColor = Color.FromArgb(30, 136, 229),
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+                    Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    Padding = new Padding(8, 4, 8, 4)
                 }
             };
             dgvRooms.Columns.Add(btnDetail);
@@ -156,7 +224,7 @@ namespace QuanLyNhaTro.UI.UserControls
             // Empty message
             lblEmptyMessage = new Label
             {
-                Font = new Font("Segoe UI", 16F),
+                Font = new Font("Segoe UI", 14F),
                 ForeColor = Color.FromArgb(149, 165, 166),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Fill,
@@ -164,8 +232,99 @@ namespace QuanLyNhaTro.UI.UserControls
             };
 
             // Layout
-            pnlMainCard.Controls.AddRange(new Control[] { dgvRooms, lblEmptyMessage, pnlSummary, pnlHeader });
-            this.Controls.Add(pnlMainCard);
+            pnlMainCard.Controls.AddRange(new Control[] { dgvRooms, lblEmptyMessage });
+
+            // Thêm các controls theo thứ tự dock (bottom to top)
+            pnlContainer.Controls.Add(pnlMainCard);        // Dock.Fill - chiếm phần còn lại
+            pnlContainer.Controls.Add(pnlTableTitle);      // Dock.Top
+            pnlContainer.Controls.Add(pnlCardsContainer);  // Dock.Top
+            pnlContainer.Controls.Add(pnlTitleSection);    // Dock.Top
+
+            this.Controls.Add(pnlContainer);
+        }
+
+        private Panel CreateInfoCard(string icon, string title, string value, Color accentColor)
+        {
+            var card = new Panel
+            {
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                MinimumSize = new Size(200, 84),
+                Height = 84
+            };
+            UIHelper.ApplyCardShadow(card);
+            UIHelper.RoundControl(card, 10);
+
+            // Icon
+            var lblIcon = new Label
+            {
+                Text = icon,
+                Font = new Font("Segoe UI", 28F),
+                ForeColor = accentColor,
+                Location = new Point(16, 20),
+                Size = new Size(50, 50),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+
+            // Title
+            var lblTitle = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(108, 117, 125),
+                Location = new Point(75, 22),
+                AutoSize = true
+            };
+
+            // Value
+            var lblValue = new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI Semibold", 18F),
+                ForeColor = Color.FromArgb(33, 37, 41),
+                Location = new Point(75, 40),
+                AutoSize = true,
+                Tag = "value"
+            };
+
+            card.Controls.AddRange(new Control[] { lblIcon, lblTitle, lblValue });
+            return card;
+        }
+
+        private void UpdateInfoCards(int roomCount, string buildingName, decimal giaThue, string trangThai)
+        {
+            var container = this.Controls[0];
+            foreach (Control ctrl in container.Controls)
+            {
+                if (ctrl is TableLayoutPanel tlp)
+                {
+                    foreach (Control childCtrl in tlp.Controls)
+                    {
+                        if (childCtrl is Panel panel && panel.Controls.OfType<Label>().Any(l => l.Tag?.ToString() == "value"))
+                        {
+                            var valueLabel = panel.Controls.OfType<Label>().First(l => l.Tag?.ToString() == "value");
+
+                            switch (panel.Tag?.ToString())
+                            {
+                                case "room_count":
+                                    valueLabel.Text = roomCount.ToString();
+                                    break;
+                                case "building_name":
+                                    valueLabel.Text = buildingName.Length > 15 ? buildingName.Substring(0, 15) + "..." : buildingName;
+                                    break;
+                                case "gia_thue":
+                                    valueLabel.Text = $"{giaThue:N0}đ";
+                                    valueLabel.Font = new Font("Segoe UI Semibold", 14F);
+                                    break;
+                                case "trang_thai":
+                                    valueLabel.Text = trangThai;
+                                    valueLabel.Font = new Font("Segoe UI Semibold", 13F);
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private async void LoadDataAsync()
@@ -179,15 +338,18 @@ namespace QuanLyNhaTro.UI.UserControls
 
                 if (contracts.Count == 0)
                 {
-                    lblSummary.Text = "Bạn chưa có phòng nào đang thuê";
-                    ShowEmpty("Bạn chưa có phòng nào đang thuê.\\n\\nHãy đăng ký thuê phòng tại menu 'Tìm phòng trống'.");
+                    ShowEmpty("Bạn chưa có phòng nào đang thuê.\n\nHãy đăng ký thuê phòng tại menu 'Tìm phòng trống'.");
+                    UpdateInfoCards(0, "---", 0, "---");
                     return;
                 }
 
                 HideEmpty();
                 dgvRooms.DataSource = contracts;
 
-                lblSummary.Text = $"Tổng: {contracts.Count} phòng đang thuê";
+                // Cập nhật Info Cards
+                var firstContract = contracts.First();
+                var trangThaiDisplay = firstContract.NgayKetThuc < DateTime.Now ? "Hết hạn" : "Hiệu lực";
+                UpdateInfoCards(contracts.Count, firstContract.BuildingName ?? "---", firstContract.GiaThue, trangThaiDisplay);
 
                 // Format
                 foreach (DataGridViewColumn col in dgvRooms.Columns)
@@ -278,42 +440,9 @@ namespace QuanLyNhaTro.UI.UserControls
 
                 var assets = (await _taiSanRepo.GetByPhongIdAsync(room.PhongId)).ToList();
 
-                // Kiểm tra trạng thái hợp đồng
-                var contractStatusDisplay = "Đang hiệu lực";
-                if (contract.TrangThai == "Active" && contract.NgayKetThuc < DateTime.Now)
-                {
-                    contractStatusDisplay = "Đã hết hạn";
-                }
-
-                var detail = $"=== THÔNG TIN PHÒNG ===\\n" +
-                            $"Mã phòng: {room.MaPhong}\\n" +
-                            $"Tòa nhà: {room.BuildingName}\\n" +
-                            $"Loại phòng: {room.TenLoai}\\n" +
-                            $"Tầng: {room.Tang}\\n" +
-                            $"Diện tích: {room.DienTich} m²\\n" +
-                            $"Giá thuê: {room.GiaThue:N0} VNĐ/tháng\\n" +
-                            $"Số người tối đa: {room.SoNguoiToiDa}\\n\\n" +
-                            $"=== THÔNG TIN HỢP ĐỒNG ===\\n" +
-                            $"Mã hợp đồng: {contract.MaHopDong}\\n" +
-                            $"Ngày bắt đầu: {contract.NgayBatDau:dd/MM/yyyy}\\n" +
-                            $"Ngày kết thúc: {contract.NgayKetThuc:dd/MM/yyyy}\\n" +
-                            $"Giá thuê: {contract.GiaThue:N0} VNĐ/tháng\\n" +
-                            $"Tiền cọc: {contract.TienCoc:N0} VNĐ\\n" +
-                            $"Chu kỳ thanh toán: {contract.ChuKyThanhToan} tháng\\n" +
-                            $"Trạng thái: {contractStatusDisplay}\\n";
-
-                if (assets.Count > 0)
-                {
-                    detail += $"\\n=== TÀI SẢN TRONG PHÒNG ({assets.Count}) ===\\n";
-                    foreach (var asset in assets)
-                    {
-                        detail += $"• {asset.TenTaiSan} - SL: {asset.SoLuong} - Tình trạng: {asset.TinhTrang}\\n";
-                        if (!string.IsNullOrEmpty(asset.GhiChu))
-                            detail += $"  Ghi chú: {asset.GhiChu}\\n";
-                    }
-                }
-
-                MessageBox.Show(detail, "Chi tiết phòng", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Show modern dialog
+                var dialog = new Forms.RoomDetailDialog(room, contract, assets);
+                dialog.ShowDialog(this);
             }
             catch (Exception ex)
             {

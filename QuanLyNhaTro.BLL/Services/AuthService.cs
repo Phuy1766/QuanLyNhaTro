@@ -149,6 +149,77 @@ namespace QuanLyNhaTro.BLL.Services
         }
 
         /// <summary>
+        /// Đăng ký tài khoản mới (cho Tenant)
+        /// </summary>
+        public async Task<(bool Success, string Message)> RegisterAsync(
+            string username,
+            string password,
+            string fullName,
+            string email,
+            string phone)
+        {
+            // Validation
+            if (string.IsNullOrWhiteSpace(username))
+                return (false, "Tên đăng nhập không được để trống!");
+
+            if (string.IsNullOrWhiteSpace(password))
+                return (false, "Mật khẩu không được để trống!");
+
+            if (password.Length < 6)
+                return (false, "Mật khẩu phải có ít nhất 6 ký tự!");
+
+            if (string.IsNullOrWhiteSpace(fullName))
+                return (false, "Họ tên không được để trống!");
+
+            if (string.IsNullOrWhiteSpace(email))
+                return (false, "Email không được để trống!");
+
+            if (!email.Contains("@") || !email.Contains("."))
+                return (false, "Email không hợp lệ!");
+
+            if (string.IsNullOrWhiteSpace(phone))
+                return (false, "Số điện thoại không được để trống!");
+
+            // Check username exists
+            if (await _userRepo.UsernameExistsAsync(username))
+                return (false, "Tên đăng nhập đã tồn tại!");
+
+            // Lấy RoleId của Tenant (giả định RoleId = 3 cho Tenant)
+            var roles = await _userRepo.GetAllRolesAsync();
+            var tenantRole = roles.FirstOrDefault(r => r.RoleName == "Tenant");
+
+            if (tenantRole == null)
+                return (false, "Không tìm thấy vai trò Tenant trong hệ thống!");
+
+            // Tạo user mới
+            var user = new User
+            {
+                Username = username,
+                PasswordHash = PasswordHelper.HashPassword(password),
+                FullName = fullName,
+                Email = email,
+                Phone = phone,
+                RoleId = tenantRole.RoleId,
+                IsActive = true,
+                Theme = "Light",
+                CreatedAt = DateTime.Now
+            };
+
+            var userId = await _userRepo.InsertAsync(user);
+
+            if (userId > 0)
+            {
+                // Ghi log
+                await _logRepo.LogAsync(userId, "USERS", userId.ToString(), "REGISTER",
+                    moTa: $"Đăng ký tài khoản mới: {username}");
+
+                return (true, "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
+            }
+
+            return (false, "Đăng ký tài khoản thất bại! Vui lòng thử lại.");
+        }
+
+        /// <summary>
         /// Cập nhật theme
         /// </summary>
         public async Task<bool> UpdateThemeAsync(string theme)

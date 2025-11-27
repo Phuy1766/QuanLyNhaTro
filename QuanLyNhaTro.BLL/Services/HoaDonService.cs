@@ -57,6 +57,17 @@ namespace QuanLyNhaTro.BLL.Services
             if (await _repo.ExistsForMonthAsync(hopDongId, thangNam))
                 return (false, "Đã có hóa đơn cho tháng này!", 0);
 
+            // If there exists *inactive* invoices for the same HopDong+month (i.e. soft-deleted), remove them to allow recreate
+            var existingAll = (await _repo.GetByHopDongAndMonthAsync(hopDongId, thangNam, includeInactive: true)).ToList();
+            if (existingAll.Any(h => !h.IsActive))
+            {
+                foreach (var old in existingAll.Where(h => !h.IsActive))
+                {
+                    // Hard-delete leftovers (details already removed earlier during soft-delete), safe to ignore result
+                    try { await _repo.HardDeleteAsync(old.HoaDonId); } catch { }
+                }
+            }
+
             // Tính tổng tiền dịch vụ
             decimal tongDichVu = chiTietDichVu.Sum(x => x.ThanhTien);
             decimal tongCong = hopDong.GiaThue + tongDichVu;

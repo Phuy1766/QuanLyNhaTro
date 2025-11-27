@@ -13,7 +13,7 @@ namespace QuanLyNhaTro.UI
             // Khởi tạo connection string
             // Thay đổi theo cấu hình SQL Server của bạn
             DatabaseHelper.Initialize(
-                server: "DESKTOP-I2SES3S",  // SQL Server 2022
+                server: "DESKTOP-B1N0UO5",  // SQL Server 2022
                 database: "QuanLyNhaTro",
                 integratedSecurity: true
             );

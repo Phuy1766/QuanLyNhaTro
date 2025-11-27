@@ -243,6 +243,7 @@ CREATE TABLE HOADON (
     TrangThai NVARCHAR(20) DEFAULT N'ChuaThanhToan', -- ChuaThanhToan, DaThanhToan, QuaHan
     GhiChu NVARCHAR(500),
     CreatedBy INT,
+    IsActive BIT DEFAULT 1,
     CreatedAt DATETIME DEFAULT GETDATE(),
     UpdatedAt DATETIME,
     CONSTRAINT FK_HoaDon_HopDong FOREIGN KEY (HopDongId) REFERENCES HOPDONG(HopDongId),
@@ -548,7 +549,7 @@ BEGIN
     WHILE @@FETCH_STATUS = 0
     BEGIN
         -- Kiểm tra đã có hóa đơn tháng này chưa
-        IF NOT EXISTS (SELECT 1 FROM HOADON WHERE HopDongId = @HopDongId AND ThangNam = @ThangNam)
+        IF NOT EXISTS (SELECT 1 FROM HOADON WHERE HopDongId = @HopDongId AND ThangNam = @ThangNam AND IsActive = 1)
         BEGIN
             SET @MaHoaDon = 'HD' + FORMAT(@ThangNam, 'yyyyMM') + RIGHT('000' + CAST(@HopDongId AS NVARCHAR), 3);
 
@@ -601,8 +602,9 @@ BEGIN
     SELECT NULL, N'HoaDonQuaHan',
            N'Hóa đơn quá hạn: ' + hd.MaHoaDon,
            N'Hóa đơn ' + hd.MaHoaDon + ' đã quá hạn thanh toán. Số tiền còn nợ: ' + FORMAT(hd.ConNo, 'N0') + ' VNĐ'
-    FROM HOADON hd
-    WHERE hd.TrangThai = N'ChuaThanhToan'
+        FROM HOADON hd
+        WHERE hd.TrangThai = N'ChuaThanhToan'
+            AND hd.IsActive = 1
       AND hd.NgayHetHan < GETDATE()
       AND NOT EXISTS (
           SELECT 1 FROM NOTIFICATION_LOG
